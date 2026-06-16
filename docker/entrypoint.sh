@@ -23,8 +23,7 @@ wait_for_db() {
 case "$ROLE" in
     web)
         wait_for_db
-        # NEVER migrate:fresh in prod — only forward migrations.
-        php artisan migrate --force
+        # Migrations are run by the queue role (its logs are reachable via API).
         php artisan storage:link || true
         # NOTE: no route:cache — routes/web.php uses a closure route (SPA catch-all)
         # which cannot be serialized; route:cache would throw and crash-loop the container.
@@ -42,6 +41,9 @@ case "$ROLE" in
 
     queue)
         wait_for_db
+        echo "[entrypoint] ===== running migrations ====="
+        php artisan migrate --force --no-ansi -v 2>&1 || echo "[entrypoint] !!!!! MIGRATE FAILED !!!!!"
+        echo "[entrypoint] ===== migrations done ====="
         echo "[entrypoint] starting queue worker"
         exec php artisan queue:work --tries=3 --timeout=90 --sleep=3 --max-time=3600
         ;;
