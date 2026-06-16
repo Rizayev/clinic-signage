@@ -62,6 +62,15 @@ services:
       CONTAINER_ROLE: web
     expose:
       - "80"
+    networks:
+      - default
+      - coolify
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.signage-web.rule=Host(`signage.75.119.137.151.sslip.io`)"
+      - traefik.http.routers.signage-web.entryPoints=http
+      - traefik.http.routers.signage-web.priority=1000
+      - traefik.http.services.signage-web.loadbalancer.server.port=80
     volumes:
       - storage-app:/var/www/html/storage/app
     depends_on:
@@ -82,6 +91,15 @@ services:
       CONTAINER_ROLE: reverb
     expose:
       - "8080"
+    networks:
+      - default
+      - coolify
+    labels:
+      - traefik.enable=true
+      - "traefik.http.routers.signage-reverb.rule=Host(`signage-ws.75.119.137.151.sslip.io`)"
+      - traefik.http.routers.signage-reverb.entryPoints=http
+      - traefik.http.routers.signage-reverb.priority=1000
+      - traefik.http.services.signage-reverb.loadbalancer.server.port=8080
     restart: unless-stopped
 
   queue:
@@ -113,3 +131,10 @@ services:
 volumes:
   storage-app:
   db-data:
+
+networks:
+  default:
+  # Coolify's reverse-proxy (Traefik) network — web/reverb join it so the
+  # proxy can route the sslip domains to them.
+  coolify:
+    external: true
