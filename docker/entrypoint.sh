@@ -44,6 +44,9 @@ case "$ROLE" in
         echo "[entrypoint] ===== running migrations ====="
         php artisan migrate --force --no-ansi -v 2>&1 || echo "[entrypoint] !!!!! MIGRATE FAILED !!!!!"
         echo "[entrypoint] ===== migrations done ====="
+        echo "[diag] sleeping 15s for web/reverb to boot..."; sleep 15
+        echo "[diag] web:80/up ->"; wget -qO- -T 6 "http://web:80/up" && echo " [WEB OK]" || echo "[WEB UNREACHABLE]"
+        echo "[diag] reverb:8080 ->"; wget -qO- -T 6 "http://reverb:8080" ; echo "[reverb exit=$?]"
         echo "[entrypoint] starting queue worker"
         exec php artisan queue:work --tries=3 --timeout=90 --sleep=3 --max-time=3600
         ;;
