@@ -77,11 +77,24 @@ const emergencyVisible = computed(() => {
 
 const tickerVisible = computed(() => {
     const tk = ticker.value;
-    if (!tk || tickerDone.value) return false;
+    if (!tk) return false;
     const t = nowTs.value;
-    if (tk.duration_minutes && tk.started_at_ms && t > tk.started_at_ms + tk.duration_minutes * 60000) return false;
+
+    // Don't overlap an emergency banner sharing the same position.
     const e = emergency.value;
     if (emergencyVisible.value && e?.display_style === 'banner' && e?.position === tk.position) return false;
+
+    // Recurring schedule: visible for duration_minutes out of every interval_minutes.
+    if (tk.interval_minutes && tk.duration_minutes && tk.started_at_ms) {
+        const elapsed = t - tk.started_at_ms;
+        if (elapsed < 0) return false;
+        const cycleMs = tk.interval_minutes * 60000;
+        return elapsed % cycleMs < tk.duration_minutes * 60000;
+    }
+
+    // One-shot: optional repeat-count and a single duration window from activation.
+    if (tickerDone.value) return false;
+    if (tk.duration_minutes && tk.started_at_ms && t > tk.started_at_ms + tk.duration_minutes * 60000) return false;
     return true;
 });
 
@@ -520,7 +533,7 @@ onUnmounted(teardown);
                 :style="{ background: emergency.background_color, color: emergency.text_color }"
             >
                 <div>
-                    <div class="text-3xl font-bold mb-4">⚠ ВНИМАНИЕ</div>
+                    <div class="text-3xl font-bold mb-4">⚠ {{ emergency.title || 'ВНИМАНИЕ' }}</div>
                     <div class="font-semibold leading-tight" :style="{ fontSize: (emergency.font_size || 48) + 'px' }">{{ emergency.text }}</div>
                 </div>
             </div>
@@ -533,6 +546,7 @@ onUnmounted(teardown);
                 :style="{ background: emergency.background_color, color: emergency.text_color, fontSize: (emergency.font_size || 48) + 'px' }"
             >
                 <span class="font-bold">⚠</span>
+                <span v-if="emergency.title" class="font-bold">{{ emergency.title }}:</span>
                 <span class="font-semibold">{{ emergency.text }}</span>
             </div>
         </template>

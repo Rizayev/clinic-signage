@@ -76,6 +76,7 @@ function emptyForm() {
         end_time: '',
         repeat_count: null,
         duration_minutes: null,
+        interval_minutes: null,
         is_active: true,
     };
 }
@@ -148,6 +149,7 @@ function openEdit(ticker) {
         end_time: toTimeInput(ticker.end_time),
         repeat_count: ticker.repeat_count ?? null,
         duration_minutes: ticker.duration_minutes ?? null,
+        interval_minutes: ticker.interval_minutes ?? null,
         is_active: !!ticker.is_active,
     });
     clearErrors();
@@ -174,6 +176,7 @@ async function save() {
         end_time: form.end_time || null,
         repeat_count: form.repeat_count === '' || form.repeat_count == null ? null : Number(form.repeat_count),
         duration_minutes: form.duration_minutes === '' || form.duration_minutes == null ? null : Number(form.duration_minutes),
+        interval_minutes: form.interval_minutes === '' || form.interval_minutes == null ? null : Number(form.interval_minutes),
         is_active: form.is_active,
     };
     try {
@@ -417,15 +420,24 @@ onMounted(load);
                             </div>
                         </div>
                         <div class="border-t border-slate-100 pt-4">
-                            <p class="text-sm font-medium text-slate-600 mb-2">Лимиты показа</p>
+                            <p class="text-sm font-medium text-slate-600 mb-2">Периодический показ</p>
                             <div class="grid grid-cols-2 gap-4">
-                                <FormField label="Повторов" hint="Пусто = бесконечно" :error="errors.repeat_count">
-                                    <TextInput v-model="form.repeat_count" type="number" placeholder="∞" />
+                                <FormField label="Показывать каждые (мин)" hint="Пусто = постоянно" :error="errors.interval_minutes">
+                                    <TextInput v-model="form.interval_minutes" type="number" placeholder="напр. 30" />
                                 </FormField>
-                                <FormField label="Длительность (мин)" hint="От включения" :error="errors.duration_minutes">
-                                    <TextInput v-model="form.duration_minutes" type="number" placeholder="—" />
+                                <FormField label="Длительность показа (мин)" hint="Сколько минут видна за цикл" :error="errors.duration_minutes">
+                                    <TextInput v-model="form.duration_minutes" type="number" placeholder="напр. 5" />
                                 </FormField>
                             </div>
+                            <p class="text-xs text-slate-400 mt-1">
+                                Напр. «каждые 30 / длительность 5» — строка показывается 5 минут, затем
+                                скрывается на 25, и так по кругу. Без «каждые …» — длительность считается один раз от включения.
+                            </p>
+                        </div>
+                        <div class="border-t border-slate-100 pt-4">
+                            <FormField label="Повторов прокрутки" hint="Пусто = бесконечно (за время показа)" :error="errors.repeat_count">
+                                <TextInput v-model="form.repeat_count" type="number" placeholder="∞" />
+                            </FormField>
                         </div>
                     </div>
 

@@ -211,6 +211,7 @@ class PlayerController extends Controller
             'opacity' => (float) $ticker->opacity,
             'repeat_count' => $ticker->repeat_count ?: null, // null/0 = infinite
             'duration_minutes' => $ticker->duration_minutes ?: null,
+            'interval_minutes' => $ticker->interval_minutes ?: null, // recurring window
             'started_at_ms' => $ticker->started_at?->valueOf(),
         ];
     }
@@ -228,6 +229,7 @@ class PlayerController extends Controller
 
         return [
             'active' => true,
+            'title' => $emergency->title,
             'text' => $emergency->text,
             'background_color' => $emergency->background_color,
             'text_color' => $emergency->text_color,

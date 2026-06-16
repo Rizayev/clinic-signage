@@ -31,6 +31,7 @@ class UpdateTickerRequest extends FormRequest
             'end_time' => ['nullable', 'date_format:H:i'],
             'repeat_count' => ['nullable', 'integer', 'min:0', 'max:1000'],
             'duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
+            'interval_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

@@ -28,6 +28,7 @@ class TickerResource extends JsonResource
             'end_time' => $this->end_time,
             'repeat_count' => $this->repeat_count,
             'duration_minutes' => $this->duration_minutes,
+            'interval_minutes' => $this->interval_minutes,
             'started_at' => $this->started_at,
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,

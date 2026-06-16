@@ -72,7 +72,7 @@ class MediaController extends Controller
         }
 
         $data = $request->validate([
-            'file' => ['required', 'file', 'max:512000'],
+            'file' => ['required', 'file', 'max:2097152'],
             'title' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:255'],
         ]);
@@ -105,7 +105,7 @@ class MediaController extends Controller
     public function replace(Request $request, Media $media)
     {
         $request->validate([
-            'file' => ['required', 'file', 'max:512000'],
+            'file' => ['required', 'file', 'max:2097152'],
         ]);
 
         $media = $this->mediaService->replaceFile($media, $request->file('file'));
