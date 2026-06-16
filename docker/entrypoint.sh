@@ -26,9 +26,10 @@ case "$ROLE" in
         # NEVER migrate:fresh in prod — only forward migrations.
         php artisan migrate --force
         php artisan storage:link || true
-        php artisan config:cache
-        php artisan route:cache
-        php artisan view:cache
+        # NOTE: no route:cache — routes/web.php uses a closure route (SPA catch-all)
+        # which cannot be serialized; route:cache would throw and crash-loop the container.
+        php artisan config:cache || true
+        php artisan view:cache || true
         chown -R www-data:www-data storage bootstrap/cache
         echo "[entrypoint] starting web (nginx + php-fpm)"
         exec supervisord -c /etc/supervisord.conf
