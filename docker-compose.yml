@@ -65,8 +65,7 @@ services:
     volumes:
       - storage-app:/var/www/html/storage/app
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:80/up"]
       interval: 30s
@@ -94,10 +93,12 @@ services:
     volumes:
       - storage-app:/var/www/html/storage/app
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
     restart: unless-stopped
 
+  # No healthcheck here on purpose: web/queue entrypoint runs its own
+  # wait_for_db (PDO) loop, so start-order (depends_on) is enough and we
+  # avoid passing the DB password through a Coolify-interpolated healthcheck.
   mysql:
     image: mysql:8.0
     environment:
@@ -107,12 +108,6 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
     volumes:
       - db-data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 60s
     restart: unless-stopped
 
 volumes:
