@@ -59,7 +59,12 @@ COPY docker/entrypoint.sh   /usr/local/bin/entrypoint
 
 RUN chmod +x /usr/local/bin/entrypoint \
     && mkdir -p storage/app/public storage/app/private storage/framework/{cache,sessions,views} storage/logs \
-    && chown -R www-data:www-data storage bootstrap/cache
+    && chown -R www-data:www-data storage bootstrap/cache \
+    # nginx workers run as www-data — its temp dirs (where large upload bodies are
+    # buffered) must be writable by www-data, else POST /api/media → 500.
+    && mkdir -p /var/lib/nginx/tmp/client_body /var/lib/nginx/tmp/proxy \
+       /var/lib/nginx/tmp/fastcgi /var/lib/nginx/tmp/uwsgi /var/lib/nginx/tmp/scgi \
+    && chown -R www-data:www-data /var/lib/nginx
 
 EXPOSE 80
 ENTRYPOINT ["entrypoint"]
