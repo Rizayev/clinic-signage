@@ -75,12 +75,6 @@ services:
       - storage-app:/var/www/html/storage/app
     depends_on:
       - mysql
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:80/up"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
     restart: unless-stopped
 
   reverb:
