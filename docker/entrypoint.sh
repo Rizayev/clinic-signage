@@ -48,8 +48,15 @@ case "$ROLE" in
             echo "[entrypoint] queue waiting for migrations..."
             sleep 3
         done
-        echo "[entrypoint] starting queue worker"
-        exec php artisan queue:work --tries=3 --timeout=90 --sleep=3 --max-time=3600
+        echo "[entrypoint] starting queue worker (looped)"
+        # Recycle the worker INSIDE the container. queue:work --max-time exits hourly
+        # (memory hygiene); without this loop the container would exit each time and
+        # Docker/Coolify would count it as a restart → hit the restart limit → app stopped.
+        while true; do
+            php artisan queue:work --tries=3 --timeout=90 --sleep=3 --max-time=3600 || true
+            echo "[entrypoint] queue worker cycled $(date -u +%H:%M:%S), restarting..."
+            sleep 1
+        done
         ;;
 
     *)
