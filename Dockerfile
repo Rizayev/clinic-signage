@@ -33,11 +33,12 @@ FROM php:8.3-fpm-alpine AS app
 
 RUN apk add --no-cache nginx supervisor ffmpeg bash
 
-# PHP extensions: pdo_mysql (DB), pcntl (queue/reverb signals),
-# opcache (perf), plus common Laravel deps.
+# PHP extensions: pdo_mysql (DB), pcntl (queue/reverb signals), opcache (perf),
+# zip (composer), mbstring (Laravel core). intl/gd/bcmath/exif dropped — unused,
+# and compiling intl/gd from source is the heavy CPU/RAM spike during builds.
 ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 RUN chmod +x /usr/local/bin/install-php-extensions && \
-    install-php-extensions pdo_mysql pcntl bcmath opcache zip mbstring exif intl gd
+    install-php-extensions pdo_mysql pcntl opcache zip mbstring
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

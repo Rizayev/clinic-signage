@@ -113,6 +113,8 @@ services:
   # avoid passing the DB password through a Coolify-interpolated healthcheck.
   mysql:
     image: mysql:8.0
+    # Trim memory so two apps + Coolify fit on a small server.
+    command: --innodb-buffer-pool-size=64M --performance-schema=OFF
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-signage}
       MYSQL_USER: ${DB_USERNAME:-signage}
