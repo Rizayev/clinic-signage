@@ -98,7 +98,7 @@ class PlayerController extends Controller
         $device = $request->attributes->get('device');
 
         $playlist = $this->resolver->resolveForDevice($device);
-        $ticker = $this->resolver->resolveTicker($device);
+        $tickers = $this->resolver->resolveTickers($device);
         $emergency = $this->resolver->resolveEmergency($device);
 
         return response()->json([
@@ -106,9 +106,12 @@ class PlayerController extends Controller
                 'id' => $device->id,
                 'name' => $device->name,
                 'orientation' => $device->screen_orientation,
+                'audio' => (bool) $device->audio_enabled,
             ],
             'playlist' => $this->formatPlaylist($playlist),
-            'ticker' => $this->formatTicker($ticker),
+            // Back-compat single ticker (best) + full rotation list.
+            'ticker' => $this->formatTicker($tickers->first()),
+            'tickers' => $tickers->map(fn ($t) => $this->formatTicker($t))->all(),
             'emergency' => $this->formatEmergency($emergency),
         ]);
     }
@@ -149,7 +152,7 @@ class PlayerController extends Controller
         $device = $request->attributes->get('device');
 
         $playlist = $this->resolver->resolveForDevice($device);
-        $ticker = $this->resolver->resolveTicker($device);
+        $tickers = $this->resolver->resolveTickers($device);
         $emergency = $this->resolver->resolveEmergency($device);
 
         $revision = implode('|', [
@@ -159,7 +162,10 @@ class PlayerController extends Controller
                     .'.'.(optional($emergency->ends_at)->timestamp ?? '0')
                     .'.'.(optional($emergency->scheduled_start)->timestamp ?? '0')
                 : '0'),
-            't:'.($ticker ? $ticker->id.'.'.(optional($ticker->updated_at)->timestamp ?? '1') : '0'),
+            't:'.($tickers->isNotEmpty()
+                ? $tickers->map(fn ($t) => $t->id.'.'.(optional($t->updated_at)->timestamp ?? '1'))->implode(',')
+                : '0'),
+            'a:'.((int) $device->audio_enabled),
         ]);
 
         return response()->json(['revision' => $revision]);
@@ -202,6 +208,7 @@ class PlayerController extends Controller
 
         return [
             'enabled' => true,
+            'id' => $ticker->id,
             'text' => $ticker->text,
             'position' => $ticker->position,
             'speed' => $ticker->speed,

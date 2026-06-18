@@ -17,7 +17,6 @@ const online = ref(true);
 const live = ref(false);
 const controlsVisible = ref(false);
 const nowTs = ref(Date.now());
-const tickerDone = ref(false);
 const clockOffset = ref(0);
 
 /*
@@ -63,8 +62,40 @@ function authHeader() {
 
 const items = computed(() => config.value?.playlist?.items ?? []);
 const activeItem = computed(() => slots[activeSlot.value].item);
-const ticker = computed(() => (config.value?.ticker?.enabled ? config.value.ticker : null));
+const audioEnabled = computed(() => !!config.value?.device?.audio);
 const emergency = computed(() => (config.value?.emergency?.active ? config.value.emergency : null));
+
+// All active tickers (new array API), falling back to the legacy single ticker.
+const allTickers = computed(() => {
+    const list = config.value?.tickers;
+    if (Array.isArray(list) && list.length) return list.filter((t) => t && t.enabled !== false);
+    const single = config.value?.ticker;
+    return single?.enabled ? [single] : [];
+});
+
+// A ticker is "in window" now if its recurring/one-shot schedule allows it.
+function tickerInWindow(tk) {
+    const t = nowTs.value;
+    if (tk.interval_minutes && tk.duration_minutes && tk.started_at_ms) {
+        const elapsed = t - tk.started_at_ms;
+        if (elapsed < 0) return false;
+        return elapsed % (tk.interval_minutes * 60000) < tk.duration_minutes * 60000;
+    }
+    if (tk.duration_minutes && tk.started_at_ms && t > tk.started_at_ms + tk.duration_minutes * 60000) return false;
+    return true;
+}
+
+const visibleTickers = computed(() => allTickers.value.filter(tickerInWindow));
+
+// Rotate through the visible tickers — deterministic from the shared clock so
+// every screen shows the same one at the same moment.
+const TICKER_ROTATE_SEC = 15;
+const ticker = computed(() => {
+    const list = visibleTickers.value;
+    if (!list.length) return null;
+    const idx = Math.floor(nowTs.value / (TICKER_ROTATE_SEC * 1000)) % list.length;
+    return list[idx];
+});
 
 const emergencyVisible = computed(() => {
     const e = emergency.value;
@@ -78,34 +109,11 @@ const emergencyVisible = computed(() => {
 const tickerVisible = computed(() => {
     const tk = ticker.value;
     if (!tk) return false;
-    const t = nowTs.value;
-
     // Don't overlap an emergency banner sharing the same position.
     const e = emergency.value;
     if (emergencyVisible.value && e?.display_style === 'banner' && e?.position === tk.position) return false;
-
-    // Recurring schedule: visible for duration_minutes out of every interval_minutes.
-    if (tk.interval_minutes && tk.duration_minutes && tk.started_at_ms) {
-        const elapsed = t - tk.started_at_ms;
-        if (elapsed < 0) return false;
-        const cycleMs = tk.interval_minutes * 60000;
-        return elapsed % cycleMs < tk.duration_minutes * 60000;
-    }
-
-    // One-shot: optional repeat-count and a single duration window from activation.
-    if (tickerDone.value) return false;
-    if (tk.duration_minutes && tk.started_at_ms && t > tk.started_at_ms + tk.duration_minutes * 60000) return false;
     return true;
 });
-
-function onTickerAnimEnd() {
-    if (ticker.value?.repeat_count) tickerDone.value = true;
-}
-
-watch(
-    () => ticker.value && ticker.value.text + '|' + (ticker.value.repeat_count ?? 'inf') + '|' + (ticker.value.started_at_ms ?? ''),
-    () => { tickerDone.value = false; }
-);
 
 // Reset slots when the playlist itself changes so the scheduler reinitialises.
 watch(
@@ -199,7 +207,7 @@ function syncVideoRate(v, target) {
             let rate = 1 + (tgt - v.currentTime) / window;
             rate = Math.min(CONVERGE_MAX, Math.max(CONVERGE_MIN, rate));
             if (v.playbackRate !== rate) v.playbackRate = rate;
-            if (v.paused) v.play().catch(() => {});
+            if (v.paused) playMedia(v);
             return;
         }
     }
@@ -213,7 +221,7 @@ function syncVideoRate(v, target) {
         const adj = Math.min(MAX_RATE_ADJ, a * RATE_K);
         v.playbackRate = drift > 0 ? 1 - adj : 1 + adj;
     }
-    if (v.paused) v.play().catch(() => {});
+    if (v.paused) playMedia(v);
 }
 
 function pauseSlot(i) {
@@ -221,10 +229,21 @@ function pauseSlot(i) {
     if (v) try { v.pause(); } catch (e) { /* ignore */ }
 }
 
+// Play with a muted fallback: browsers block unmuted autoplay without a user
+// gesture, so if an unmuted play() rejects we retry muted — the video still
+// shows; sound kicks in after the first interaction (see unlockAudio).
+function playMedia(v) {
+    if (!v) return;
+    const p = v.play();
+    if (p && typeof p.catch === 'function') {
+        p.catch(() => { if (!v.muted) { v.muted = true; v.play().catch(() => {}); } });
+    }
+}
+
 function onSlotReady(i) {
     slots[i].ready = true;
     const v = videoRefs[i];
-    if (v && slots[i].visible) v.play().catch(() => {});
+    if (v && slots[i].visible) playMedia(v);
     // Cold-start: a freshly-shown video starts from 0; converge it to the shared
     // clock position by playing (rate) over COLD_START_WINDOW — slides into sync
     // without a visible reset.
@@ -260,7 +279,7 @@ function tick() {
             pauseSlot(act);
             activeSlot.value = other;
             const nv = videoRefs[other];
-            if (nv) nv.play().catch(() => {});
+            if (nv) playMedia(nv);
         } else if (!slots[other].item || slots[other].item.id !== target.id) {
             // Buffer miss — start loading the target into the other slot.
             slots[other] = { item: target, ready: false, visible: false };
@@ -412,6 +431,14 @@ function showControls() {
     controlsTimer = setTimeout(() => { controlsVisible.value = false; }, 3500);
 }
 
+// Browser autoplay-with-sound needs a user gesture. The first real interaction
+// (tap/click/key) unlocks it: unmute + (re)play the active video.
+function unlockAudio() {
+    if (!audioEnabled.value) return;
+    const v = videoRefs[activeSlot.value];
+    if (v) { v.muted = false; v.play().catch(() => {}); }
+}
+
 function unpair() {
     if (!window.confirm('Отвязать это устройство от системы?')) return;
     teardown();
@@ -421,8 +448,16 @@ function unpair() {
     lastRevision.value = null;
 }
 
-onMounted(() => { if (token.value) init(); });
-onUnmounted(teardown);
+onMounted(() => {
+    if (token.value) init();
+    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
+        window.addEventListener(ev, unlockAudio, { passive: true }));
+});
+onUnmounted(() => {
+    teardown();
+    ['pointerdown', 'keydown', 'touchstart'].forEach((ev) =>
+        window.removeEventListener(ev, unlockAudio));
+});
 </script>
 
 <template>
@@ -489,7 +524,7 @@ onUnmounted(teardown);
                         :key="slot.item.id"
                         :src="slot.item.url"
                         class="w-full h-full object-contain"
-                        muted
+                        :muted="!(audioEnabled && slot.visible)"
                         playsinline
                         loop
                         preload="auto"
@@ -517,9 +552,8 @@ onUnmounted(teardown);
             >
                 <div
                     class="inline-block ticker-move"
-                    :key="ticker.text + '|' + (ticker.repeat_count ?? 'inf')"
+                    :key="(ticker.id ?? ticker.text) + '|' + (ticker.repeat_count ?? 'inf')"
                     :style="{ animationDuration: Math.max(8, 1200 / (ticker.speed || 60)) + 's', animationIterationCount: ticker.repeat_count || 'infinite' }"
-                    @animationend="onTickerAnimEnd"
                 >
                     {{ ticker.text }}
                 </div>

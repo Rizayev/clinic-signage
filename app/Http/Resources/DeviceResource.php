@@ -25,6 +25,7 @@ class DeviceResource extends JsonResource
             'mac_address' => $this->mac_address,
             'android_id' => $this->android_id,
             'screen_orientation' => $this->screen_orientation,
+            'audio_enabled' => (bool) $this->audio_enabled,
             'resolution' => $this->resolution,
             'status' => $this->status,
             'last_seen_at' => $this->last_seen_at,

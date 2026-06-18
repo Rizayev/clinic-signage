@@ -81,6 +81,17 @@ class PlaylistResolver
      */
     public function resolveTicker(Device $device): ?Ticker
     {
+        return $this->resolveTickers($device)->first();
+    }
+
+    /**
+     * All active tickers that target this device and are within their
+     * date/time window — ordered most-specific first, then by priority/id.
+     * The player rotates through them. Recurring (interval_minutes) visibility
+     * is computed client-side.
+     */
+    public function resolveTickers(Device $device): \Illuminate\Support\Collection
+    {
         $now = Carbon::now();
 
         $candidates = Ticker::query()
@@ -107,22 +118,10 @@ class PlaylistResolver
 
         $specificity = ['device' => 4, 'zone' => 3, 'branch' => 2, 'all' => 1];
 
-        $best = null;
-        $bestRank = 0;
-
-        foreach ($candidates as $ticker) {
-            if (! $this->withinWindow($ticker, $now)) {
-                continue;
-            }
-
-            $rank = $specificity[$ticker->target_type] ?? 0;
-            if ($rank > $bestRank) {
-                $bestRank = $rank;
-                $best = $ticker;
-            }
-        }
-
-        return $best;
+        return $candidates
+            ->filter(fn (Ticker $t) => $this->withinWindow($t, $now))
+            ->sortByDesc(fn (Ticker $t) => ($specificity[$t->target_type] ?? 0) * 1_000_000 + $t->id)
+            ->values();
     }
 
     /**
@@ -207,8 +206,9 @@ class PlaylistResolver
             }
         }
 
-        // "show for N minutes from activation"
-        if ($ticker->duration_minutes && $ticker->started_at
+        // One-shot "show for N minutes from activation". Skipped for recurring
+        // tickers (interval_minutes) — their cyclic window is handled client-side.
+        if (! $ticker->interval_minutes && $ticker->duration_minutes && $ticker->started_at
             && $now->gt(Carbon::parse($ticker->started_at)->addMinutes($ticker->duration_minutes))) {
             return false;
         }

@@ -70,6 +70,7 @@ const createForm = ref({
     zone_id: '',
     device_type: 'android_tv',
     screen_orientation: 'landscape',
+    audio_enabled: false,
 });
 const createSaving = ref(false);
 const createErrors = ref({});
@@ -167,6 +168,7 @@ function openCreate() {
         zone_id: '',
         device_type: 'android_tv',
         screen_orientation: 'landscape',
+        audio_enabled: false,
     };
     createErrors.value = {};
     createdDevice.value = null;
@@ -185,6 +187,7 @@ async function submitCreate() {
             zone_id: createForm.value.zone_id || null,
             device_type: createForm.value.device_type,
             screen_orientation: createForm.value.screen_orientation,
+            audio_enabled: createForm.value.audio_enabled,
         };
         const { data } = await api.post('/devices', payload);
         createdDevice.value = data.data ?? data;
@@ -265,6 +268,16 @@ async function removeDevice(device) {
         await load();
     } catch (e) {
         toast.error(e?.response?.data?.message || 'Не удалось удалить устройство.');
+    }
+}
+
+async function toggleAudio(device) {
+    try {
+        const { data } = await api.put(`/devices/${device.id}`, { audio_enabled: !device.audio_enabled });
+        device.audio_enabled = (data.data ?? data).audio_enabled;
+        toast.success(device.audio_enabled ? 'Звук включён' : 'Звук выключен');
+    } catch (e) {
+        toast.error(e?.response?.data?.message || 'Не удалось изменить звук.');
     }
 }
 
@@ -367,6 +380,12 @@ onMounted(() => {
                                 <div class="inline-flex gap-1">
                                     <Btn size="sm" variant="ghost" @click="openDetail(d)" title="Открыть карточку">Открыть</Btn>
                                     <Btn size="sm" variant="secondary" @click="openAssign(d)" title="Назначить плейлист">🎬 Плейлист</Btn>
+                                    <Btn
+                                        size="sm"
+                                        :variant="d.audio_enabled ? 'primary' : 'ghost'"
+                                        @click="toggleAudio(d)"
+                                        :title="d.audio_enabled ? 'Звук включён — выключить' : 'Звук выключен — включить'"
+                                    >{{ d.audio_enabled ? '🔊' : '🔇' }}</Btn>
                                     <Btn size="sm" variant="danger" @click="removeDevice(d)" title="Удалить устройство">🗑</Btn>
                                 </div>
                             </td>
@@ -429,6 +448,12 @@ onMounted(() => {
                                 <SelectInput v-model="createForm.screen_orientation" :options="orientationOptions" />
                             </FormField>
                         </div>
+                        <FormField label="Звук" hint="Проигрывать видео со звуком на этом экране">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" v-model="createForm.audio_enabled" class="h-4 w-4 rounded border-slate-300" />
+                                <span class="text-sm text-slate-600">{{ createForm.audio_enabled ? '🔊 Со звуком' : '🔇 Без звука' }}</span>
+                            </label>
+                        </FormField>
                     </div>
 
                     <!-- Step 2: Размещение -->

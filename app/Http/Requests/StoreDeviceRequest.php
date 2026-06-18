@@ -20,6 +20,7 @@ class StoreDeviceRequest extends FormRequest
             'zone_id' => ['nullable', 'integer', 'exists:zones,id'],
             'device_type' => ['nullable', 'string', 'in:android_tv,android_box,browser_player,windows_player,raspberry_player'],
             'screen_orientation' => ['nullable', 'string', 'in:landscape,portrait'],
+            'audio_enabled' => ['nullable', 'boolean'],
         ];
     }
 }

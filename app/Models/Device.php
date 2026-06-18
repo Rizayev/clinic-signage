@@ -14,6 +14,7 @@ class Device extends Model
         'settings' => 'array',
         'last_seen_at' => 'datetime',
         'free_storage' => 'integer',
+        'audio_enabled' => 'boolean',
     ];
 
     public function branch(): BelongsTo
