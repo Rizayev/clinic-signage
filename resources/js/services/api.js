@@ -10,6 +10,8 @@ api.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    // Let the backend localise validation/messages to the chosen UI language.
+    config.headers['Accept-Language'] = localStorage.getItem('app_locale') || 'ru';
     return config;
 });
 

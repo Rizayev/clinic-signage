@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -20,6 +21,7 @@ import Wizard from '@/components/ui/Wizard.vue';
 const router = useRouter();
 const toast = useToast();
 const { confirm } = useConfirm();
+const { t } = useI18n();
 
 const devices = ref([]);
 const branches = ref([]);
@@ -29,36 +31,41 @@ const loading = ref(true);
 
 const filters = ref({ status: '', zone_id: '', q: '' });
 
-const statusOptions = [
-    { value: 'online', label: 'Онлайн' },
-    { value: 'offline', label: 'Оффлайн' },
-    { value: 'error', label: 'Ошибка' },
-    { value: 'updating', label: 'Обновление' },
-    { value: 'disabled', label: 'Отключён' },
-];
+const statusOptions = computed(() => [
+    { value: 'online', label: t('devices.statusOnline') },
+    { value: 'offline', label: t('devices.statusOffline') },
+    { value: 'error', label: t('devices.statusError') },
+    { value: 'updating', label: t('devices.statusUpdating') },
+    { value: 'disabled', label: t('devices.statusDisabled') },
+]);
 
-const deviceTypeOptions = [
+const deviceTypeOptions = computed(() => [
     { value: 'android_tv', label: 'Android TV' },
     { value: 'android_box', label: 'Android Box' },
-    { value: 'browser_player', label: 'Браузерный плеер' },
-    { value: 'windows_player', label: 'Windows плеер' },
-    { value: 'raspberry_player', label: 'Raspberry плеер' },
-];
+    { value: 'browser_player', label: t('devices.typeBrowserPlayer') },
+    { value: 'windows_player', label: t('devices.typeWindowsPlayer') },
+    { value: 'raspberry_player', label: t('devices.typeRaspberryPlayer') },
+]);
 
-const orientationOptions = [
-    { value: 'landscape', label: 'Горизонтальная' },
-    { value: 'portrait', label: 'Вертикальная' },
-];
+const orientationOptions = computed(() => [
+    { value: 'landscape', label: t('devices.orientationLandscape') },
+    { value: 'portrait', label: t('devices.orientationPortrait') },
+]);
 
-const statusFilterOptions = [{ value: '', label: 'Все статусы' }, ...statusOptions];
+const statusFilterOptions = computed(() => [
+    { value: '', label: t('devices.allStatuses') },
+    ...statusOptions.value,
+]);
 const zoneFilterOptions = computed(() => [
-    { value: '', label: 'Все зоны' },
+    { value: '', label: t('devices.allZones') },
     ...zones.value.map((z) => ({ value: z.id, label: z.name })),
 ]);
 
-const deviceTypeLabels = Object.fromEntries(deviceTypeOptions.map((o) => [o.value, o.label]));
+const deviceTypeLabels = computed(() =>
+    Object.fromEntries(deviceTypeOptions.value.map((o) => [o.value, o.label])),
+);
 function deviceTypeLabel(type) {
-    return deviceTypeLabels[type] ?? type ?? '—';
+    return deviceTypeLabels.value[type] ?? type ?? '—';
 }
 
 // --- Add device modal ---
@@ -77,17 +84,17 @@ const createErrors = ref({});
 const createdDevice = ref(null);
 const createStep = ref(0);
 
-const deviceWizardSteps = [
-    { label: 'Устройство' },
-    { label: 'Размещение' },
-];
+const deviceWizardSteps = computed(() => [
+    { label: t('devices.stepDevice') },
+    { label: t('devices.stepPlacement') },
+]);
 
 function validateCreateStep(i) {
     if (i === 0) {
-        if (!createForm.value.name.trim()) return 'Введите название устройства';
-        if (!createForm.value.device_code.trim()) return 'Введите код устройства';
+        if (!createForm.value.name.trim()) return t('devices.validateName');
+        if (!createForm.value.device_code.trim()) return t('devices.validateDeviceCode');
     }
-    if (i === 1 && !createForm.value.branch_id) return 'Выберите филиал';
+    if (i === 1 && !createForm.value.branch_id) return t('devices.validateBranch');
     return true;
 }
 
@@ -99,7 +106,7 @@ const createZoneOptions = computed(() => {
     const list = !createForm.value.branch_id
         ? zones.value
         : zones.value.filter((z) => String(z.branch_id) === String(createForm.value.branch_id));
-    return [{ value: '', label: 'Без зоны' }, ...list.map((z) => ({ value: z.id, label: z.name }))];
+    return [{ value: '', label: t('devices.noZone') }, ...list.map((z) => ({ value: z.id, label: z.name }))];
 });
 
 // --- Assign playlist modal ---
@@ -109,7 +116,7 @@ const assignPlaylistId = ref('');
 const assignSaving = ref(false);
 
 const assignPlaylistOptions = computed(() => [
-    { value: '', label: 'Без плейлиста' },
+    { value: '', label: t('devices.noPlaylist') },
     ...playlists.value.map((p) => ({ value: p.id, label: p.name })),
 ]);
 
@@ -141,7 +148,7 @@ async function load() {
         const { data } = await api.get('/devices', { params });
         devices.value = data.data ?? data;
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить список устройств.');
+        toast.error(e?.response?.data?.message || t('devices.loadDevicesError'));
     } finally {
         loading.value = false;
     }
@@ -191,7 +198,7 @@ async function submitCreate() {
         };
         const { data } = await api.post('/devices', payload);
         createdDevice.value = data.data ?? data;
-        toast.success('Устройство создано');
+        toast.success(t('devices.deviceCreated'));
         await load();
     } catch (e) {
         if (e?.response?.status === 422 && e.response.data?.errors) {
@@ -201,7 +208,7 @@ async function submitCreate() {
             }
             createErrors.value = mapped;
         }
-        toast.error(e?.response?.data?.message || 'Не удалось создать устройство.');
+        toast.error(e?.response?.data?.message || t('devices.createDeviceError'));
     } finally {
         createSaving.value = false;
     }
@@ -217,9 +224,9 @@ async function copyPairingCode() {
     if (!code) return;
     try {
         await navigator.clipboard.writeText(code);
-        toast.success('Код сопряжения скопирован');
+        toast.success(t('devices.pairingCodeCopied'));
     } catch (e) {
-        toast.error('Не удалось скопировать код');
+        toast.error(t('devices.copyCodeError'));
     }
 }
 
@@ -235,7 +242,7 @@ async function loadPlaylists() {
         const { data } = await api.get('/playlists');
         playlists.value = data.data ?? data;
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить плейлисты.');
+        toast.error(e?.response?.data?.message || t('devices.loadPlaylistsError'));
     }
 }
 
@@ -247,10 +254,10 @@ async function submitAssign() {
             playlist_id: assignPlaylistId.value || null,
         });
         assignModal.value = false;
-        toast.success('Плейлист назначен');
+        toast.success(t('devices.playlistAssigned'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось назначить плейлист.');
+        toast.error(e?.response?.data?.message || t('devices.assignPlaylistError'));
     } finally {
         assignSaving.value = false;
     }
@@ -258,16 +265,16 @@ async function submitAssign() {
 
 async function removeDevice(device) {
     if (!(await confirm({
-        title: 'Удалить устройство?',
-        message: `Удалить устройство «${device.name}»?`,
-        confirmText: 'Удалить',
+        title: t('devices.deleteTitle'),
+        message: t('devices.deleteMessage', { name: device.name }),
+        confirmText: t('common.delete'),
     }))) return;
     try {
         await api.delete(`/devices/${device.id}`);
-        toast.success('Устройство удалено');
+        toast.success(t('devices.deviceDeleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить устройство.');
+        toast.error(e?.response?.data?.message || t('devices.deleteDeviceError'));
     }
 }
 
@@ -275,9 +282,9 @@ async function toggleAudio(device) {
     try {
         const { data } = await api.put(`/devices/${device.id}`, { audio_enabled: !device.audio_enabled });
         device.audio_enabled = (data.data ?? data).audio_enabled;
-        toast.success(device.audio_enabled ? 'Звук включён' : 'Звук выключен');
+        toast.success(device.audio_enabled ? t('devices.soundOn') : t('devices.soundOff'));
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось изменить звук.');
+        toast.error(e?.response?.data?.message || t('devices.toggleAudioError'));
     }
 }
 
@@ -293,66 +300,66 @@ onMounted(() => {
 
 <template>
     <div>
-        <PageHeader title="Устройства" subtitle="Управление телевизорами и плеерами">
+        <PageHeader :title="$t('devices.pageTitle')" :subtitle="$t('devices.pageSubtitle')">
             <template #actions>
-                <Btn variant="primary" @click="openCreate">+ Добавить устройство</Btn>
+                <Btn variant="primary" @click="openCreate">+ {{ $t('devices.addDevice') }}</Btn>
             </template>
         </PageHeader>
 
         <Card class="mb-5">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-                <FormField label="Статус">
+                <FormField :label="$t('common.status')">
                     <SelectInput
                         v-model="filters.status"
                         :options="statusFilterOptions"
                         @update:modelValue="load"
                     />
                 </FormField>
-                <FormField label="Зона">
+                <FormField :label="$t('devices.zone')">
                     <SelectInput
                         v-model="filters.zone_id"
                         :options="zoneFilterOptions"
                         @update:modelValue="load"
                     />
                 </FormField>
-                <FormField label="Поиск" class="md:col-span-2">
+                <FormField :label="$t('common.search')" class="md:col-span-2">
                     <div class="flex gap-2">
                         <TextInput
                             v-model="filters.q"
-                            placeholder="Имя, код устройства..."
+                            :placeholder="$t('devices.searchPlaceholder')"
                             @keyup.enter="load"
                         />
-                        <Btn variant="secondary" @click="load">Найти</Btn>
+                        <Btn variant="secondary" @click="load">{{ $t('devices.find') }}</Btn>
                     </div>
                 </FormField>
             </div>
         </Card>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
             <EmptyState
                 v-else-if="!devices.length"
                 icon="📺"
-                title="Устройства не найдены"
-                hint="Добавьте первое устройство или измените параметры фильтра."
+                :title="$t('devices.emptyTitle')"
+                :hint="$t('devices.emptyHint')"
             >
                 <template #action>
-                    <Btn variant="primary" @click="openCreate">+ Добавить устройство</Btn>
+                    <Btn variant="primary" @click="openCreate">+ {{ $t('devices.addDevice') }}</Btn>
                 </template>
             </EmptyState>
             <div v-else class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Название</th>
-                            <th class="py-2.5 px-3 font-medium">Код</th>
-                            <th class="py-2.5 px-3 font-medium">Тип</th>
-                            <th class="py-2.5 px-3 font-medium">Зона</th>
-                            <th class="py-2.5 px-3 font-medium">Статус</th>
-                            <th class="py-2.5 px-3 font-medium">Плейлист</th>
-                            <th class="py-2.5 px-3 font-medium">Активность</th>
-                            <th class="py-2.5 px-3 font-medium">Код сопряжения</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.name') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.code') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.type') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.zone') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.status') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.playlist') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.activity') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('devices.pairingCode') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -378,15 +385,15 @@ onMounted(() => {
                             </td>
                             <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                 <div class="inline-flex gap-1">
-                                    <Btn size="sm" variant="ghost" @click="openDetail(d)" title="Открыть карточку">Открыть</Btn>
-                                    <Btn size="sm" variant="secondary" @click="openAssign(d)" title="Назначить плейлист">🎬 Плейлист</Btn>
+                                    <Btn size="sm" variant="ghost" @click="openDetail(d)" :title="$t('devices.openCard')">{{ $t('common.open') }}</Btn>
+                                    <Btn size="sm" variant="secondary" @click="openAssign(d)" :title="$t('devices.assignPlaylist')">🎬 {{ $t('devices.playlist') }}</Btn>
                                     <Btn
                                         size="sm"
                                         :variant="d.audio_enabled ? 'primary' : 'ghost'"
                                         @click="toggleAudio(d)"
-                                        :title="d.audio_enabled ? 'Звук включён — выключить' : 'Звук выключен — включить'"
+                                        :title="d.audio_enabled ? $t('devices.audioOnTitle') : $t('devices.audioOffTitle')"
                                     >{{ d.audio_enabled ? '🔊' : '🔇' }}</Btn>
-                                    <Btn size="sm" variant="danger" @click="removeDevice(d)" title="Удалить устройство">🗑</Btn>
+                                    <Btn size="sm" variant="danger" @click="removeDevice(d)" :title="$t('devices.deleteDevice')">🗑</Btn>
                                 </div>
                             </td>
                         </tr>
@@ -396,12 +403,12 @@ onMounted(() => {
         </Card>
 
         <!-- Add device modal -->
-        <Modal v-model="createModal" title="Добавить устройство">
+        <Modal v-model="createModal" :title="$t('devices.addDevice')">
             <!-- Success: pairing code -->
             <div v-if="createdDevice" class="text-center py-2">
                 <div class="text-4xl mb-2">✅</div>
                 <p class="text-sm text-slate-600 mb-3">
-                    Устройство создано. Введите код сопряжения на экране плеера:
+                    {{ $t('devices.createdEnterCode') }}
                 </p>
                 <div
                     class="inline-block font-mono text-2xl font-bold tracking-widest bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg px-6 py-4 mb-3"
@@ -409,14 +416,14 @@ onMounted(() => {
                     {{ createdDevice.pairing_code || '—' }}
                 </div>
                 <div v-if="createdDevice.pairing_code" class="mb-3">
-                    <Btn size="sm" variant="secondary" @click="copyPairingCode">📋 Скопировать код</Btn>
-                    <p class="text-xs text-slate-400 mt-2">Код действует до сопряжения устройства.</p>
+                    <Btn size="sm" variant="secondary" @click="copyPairingCode">📋 {{ $t('devices.copyCode') }}</Btn>
+                    <p class="text-xs text-slate-400 mt-2">{{ $t('devices.codeValidHint') }}</p>
                 </div>
                 <p class="text-xs text-slate-500 mb-4">
-                    Устройство: {{ createdDevice.name }} ({{ createdDevice.device_code }})
+                    {{ $t('devices.deviceLabel') }}: {{ createdDevice.name }} ({{ createdDevice.device_code }})
                 </p>
                 <div class="flex justify-center">
-                    <Btn variant="primary" @click="closeCreate">Готово</Btn>
+                    <Btn variant="primary" @click="closeCreate">{{ $t('common.done') }}</Btn>
                 </div>
             </div>
 
@@ -427,49 +434,49 @@ onMounted(() => {
                 :steps="deviceWizardSteps"
                 :validate="validateCreateStep"
                 :loading="createSaving"
-                finish-text="Создать"
+                :finish-text="$t('common.create')"
                 @finish="submitCreate"
                 @cancel="createModal = false"
             >
                 <template #default="{ step: s }">
                     <!-- Step 1: Устройство -->
                     <div v-if="s === 0" class="space-y-4">
-                        <FormField label="Название" required :error="createErrors.name">
-                            <TextInput v-model="createForm.name" placeholder="Например, ТВ Регистратура" />
+                        <FormField :label="$t('common.name')" required :error="createErrors.name">
+                            <TextInput v-model="createForm.name" :placeholder="$t('devices.namePlaceholder')" />
                         </FormField>
-                        <FormField label="Код устройства" required :error="createErrors.device_code" hint="Внутренний идентификатор, напр. TV-01">
+                        <FormField :label="$t('devices.deviceCode')" required :error="createErrors.device_code" :hint="$t('devices.deviceCodeHint')">
                             <TextInput v-model="createForm.device_code" placeholder="TV-01" />
                         </FormField>
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Тип устройства" :error="createErrors.device_type">
+                            <FormField :label="$t('devices.deviceType')" :error="createErrors.device_type">
                                 <SelectInput v-model="createForm.device_type" :options="deviceTypeOptions" />
                             </FormField>
-                            <FormField label="Ориентация экрана" :error="createErrors.screen_orientation">
+                            <FormField :label="$t('devices.screenOrientation')" :error="createErrors.screen_orientation">
                                 <SelectInput v-model="createForm.screen_orientation" :options="orientationOptions" />
                             </FormField>
                         </div>
-                        <FormField label="Звук" hint="Проигрывать видео со звуком на этом экране">
+                        <FormField :label="$t('devices.sound')" :hint="$t('devices.soundHint')">
                             <label class="inline-flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" v-model="createForm.audio_enabled" class="h-4 w-4 rounded border-slate-300" />
-                                <span class="text-sm text-slate-600">{{ createForm.audio_enabled ? '🔊 Со звуком' : '🔇 Без звука' }}</span>
+                                <span class="text-sm text-slate-600">{{ createForm.audio_enabled ? `🔊 ${$t('devices.withSound')}` : `🔇 ${$t('devices.withoutSound')}` }}</span>
                             </label>
                         </FormField>
                     </div>
 
                     <!-- Step 2: Размещение -->
                     <div v-else-if="s === 1" class="space-y-4">
-                        <FormField label="Филиал" required :error="createErrors.branch_id">
+                        <FormField :label="$t('devices.branch')" required :error="createErrors.branch_id">
                             <SelectInput
                                 v-model="createForm.branch_id"
                                 :options="branchSelectOptions"
-                                placeholder="Выберите филиал"
+                                :placeholder="$t('devices.selectBranch')"
                             />
                         </FormField>
-                        <FormField label="Зона" :error="createErrors.zone_id" hint="Необязательно">
+                        <FormField :label="$t('devices.zone')" :error="createErrors.zone_id" :hint="$t('common.optional')">
                             <SelectInput v-model="createForm.zone_id" :options="createZoneOptions" />
                         </FormField>
                         <p class="text-xs text-slate-500 bg-slate-50 rounded-lg px-3 py-2">
-                            После создания вы получите код сопряжения для привязки экрана.
+                            {{ $t('devices.placementHint') }}
                         </p>
                     </div>
                 </template>
@@ -477,18 +484,18 @@ onMounted(() => {
         </Modal>
 
         <!-- Assign playlist modal -->
-        <Modal v-model="assignModal" title="Назначить плейлист">
+        <Modal v-model="assignModal" :title="$t('devices.assignPlaylist')">
             <div class="space-y-4">
                 <p v-if="assignDevice" class="text-sm text-slate-600">
-                    Устройство: <span class="font-medium text-slate-800">{{ assignDevice.name }}</span>
+                    {{ $t('devices.deviceLabel') }}: <span class="font-medium text-slate-800">{{ assignDevice.name }}</span>
                 </p>
-                <FormField label="Плейлист">
+                <FormField :label="$t('devices.playlist')">
                     <SelectInput v-model="assignPlaylistId" :options="assignPlaylistOptions" />
                 </FormField>
             </div>
             <template #footer>
-                <Btn variant="secondary" @click="assignModal = false">Отмена</Btn>
-                <Btn variant="primary" :loading="assignSaving" @click="submitAssign">Назначить</Btn>
+                <Btn variant="secondary" @click="assignModal = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="assignSaving" @click="submitAssign">{{ $t('devices.assign') }}</Btn>
             </template>
         </Modal>
     </div>

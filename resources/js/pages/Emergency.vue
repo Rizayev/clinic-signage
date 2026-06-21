@@ -16,7 +16,9 @@ import TextInput from '@/components/ui/TextInput.vue';
 import SelectInput from '@/components/ui/SelectInput.vue';
 import Toggle from '@/components/ui/Toggle.vue';
 import Wizard from '@/components/ui/Wizard.vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const toast = useToast();
 const { confirm } = useConfirm();
 
@@ -31,31 +33,31 @@ const editingId = ref(null);
 const step = ref(0);
 
 const wizardSteps = [
-    { label: 'Текст' },
-    { label: 'Оформление' },
-    { label: 'Расписание' },
+    { label: t('emergency.stepText') },
+    { label: t('emergency.stepDesign') },
+    { label: t('emergency.stepSchedule') },
 ];
 
 function validateStep(i) {
-    if (i === 0 && !form.text.trim()) return 'Введите текст сообщения';
+    if (i === 0 && !form.text.trim()) return t('emergency.validateText');
     return true;
 }
 
 const targetTypes = [
-    { value: 'all', label: 'Все экраны' },
-    { value: 'branch', label: 'Филиал' },
-    { value: 'zone', label: 'Зона' },
-    { value: 'device', label: 'Устройство' },
+    { value: 'all', label: t('emergency.targetAll') },
+    { value: 'branch', label: t('emergency.targetBranch') },
+    { value: 'zone', label: t('emergency.targetZone') },
+    { value: 'device', label: t('emergency.targetDevice') },
 ];
 
 const displayStyles = [
-    { value: 'fullscreen', label: 'На весь экран' },
-    { value: 'banner', label: 'Плашка' },
+    { value: 'fullscreen', label: t('emergency.styleFullscreen') },
+    { value: 'banner', label: t('emergency.styleBanner') },
 ];
 
 const positions = [
-    { value: 'top', label: 'Сверху' },
-    { value: 'bottom', label: 'Снизу' },
+    { value: 'top', label: t('emergency.positionTop') },
+    { value: 'bottom', label: t('emergency.positionBottom') },
 ];
 
 const targetColors = {
@@ -93,8 +95,8 @@ function targetColor(type) {
 }
 
 function durationLabel(seconds) {
-    if (seconds == null || seconds === '') return 'Вручную';
-    return `${seconds} сек`;
+    if (seconds == null || seconds === '') return t('emergency.manual');
+    return t('emergency.secondsValue', { n: seconds });
 }
 
 function clearErrors() {
@@ -107,7 +109,7 @@ async function load() {
         const { data } = await api.get('/emergency-messages');
         messages.value = data.data ?? [];
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить экстренные сообщения.');
+        toast.error(e?.response?.data?.message || t('emergency.loadError'));
     } finally {
         loading.value = false;
     }
@@ -168,7 +170,7 @@ async function save() {
         if (editingId.value) {
             await api.put(`/emergency-messages/${editingId.value}`, payload);
             showModal.value = false;
-            toast.success('Сообщение обновлено');
+            toast.success(t('emergency.updated'));
         } else {
             const { data } = await api.post('/emergency-messages', payload);
             const created = data.data ?? data;
@@ -176,7 +178,7 @@ async function save() {
                 await api.post(`/emergency-messages/${created.id}/activate`);
             }
             showModal.value = false;
-            toast.success(activateAfterCreate.value ? 'Сообщение показано на экранах' : 'Сообщение сохранено');
+            toast.success(activateAfterCreate.value ? t('emergency.shownOnScreens') : t('emergency.saved'));
         }
         await load();
     } catch (e) {
@@ -185,7 +187,7 @@ async function save() {
                 errors[k] = Array.isArray(v) ? v[0] : v;
             });
         }
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить сообщение.');
+        toast.error(e?.response?.data?.message || t('emergency.saveError'));
     } finally {
         saving.value = false;
     }
@@ -194,39 +196,39 @@ async function save() {
 async function activate(message) {
     try {
         await api.post(`/emergency-messages/${message.id}/activate`);
-        toast.success('Сообщение активировано');
+        toast.success(t('emergency.activated'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось активировать сообщение.');
+        toast.error(e?.response?.data?.message || t('emergency.activateError'));
     }
 }
 
 async function deactivate(message) {
     try {
         await api.post(`/emergency-messages/${message.id}/deactivate`);
-        toast.success('Сообщение остановлено');
+        toast.success(t('emergency.stopped'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось остановить сообщение.');
+        toast.error(e?.response?.data?.message || t('emergency.stopError'));
     }
 }
 
 async function remove(message) {
     if (
         !(await confirm({
-            title: 'Удалить сообщение?',
-            message: 'Экстренное сообщение будет удалено без возможности восстановления.',
-            confirmText: 'Удалить',
+            title: t('emergency.deleteTitle'),
+            message: t('emergency.deleteMessage'),
+            confirmText: t('common.delete'),
         }))
     ) {
         return;
     }
     try {
         await api.delete(`/emergency-messages/${message.id}`);
-        toast.success('Сообщение удалено');
+        toast.success(t('emergency.deleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить сообщение.');
+        toast.error(e?.response?.data?.message || t('emergency.deleteError'));
     }
 }
 
@@ -235,25 +237,25 @@ onMounted(load);
 
 <template>
     <div>
-        <PageHeader title="Экстренные сообщения" subtitle="Срочные оповещения на всех экранах">
+        <PageHeader :title="$t('emergency.pageTitle')" :subtitle="$t('emergency.pageSubtitle')">
             <template #actions>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
-                <Btn variant="secondary" @click="openCreate(false)">Создать</Btn>
-                <Btn variant="danger" @click="openCreate(true)">🚨 Показать срочно</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('emergency.refresh') }}</Btn>
+                <Btn variant="secondary" @click="openCreate(false)">{{ $t('common.create') }}</Btn>
+                <Btn variant="danger" @click="openCreate(true)">🚨 {{ $t('emergency.showUrgent') }}</Btn>
             </template>
         </PageHeader>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
 
             <EmptyState
                 v-else-if="!messages.length"
                 icon="🚨"
-                title="Экстренных сообщений пока нет"
-                hint="Создайте сообщение или сразу покажите срочное оповещение на всех экранах."
+                :title="$t('emergency.emptyTitle')"
+                :hint="$t('emergency.emptyHint')"
             >
                 <template #action>
-                    <Btn variant="danger" @click="openCreate(true)">🚨 Показать срочно</Btn>
+                    <Btn variant="danger" @click="openCreate(true)">🚨 {{ $t('emergency.showUrgent') }}</Btn>
                 </template>
             </EmptyState>
 
@@ -261,11 +263,11 @@ onMounted(load);
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Текст</th>
-                            <th class="py-2.5 px-3 font-medium">Назначение</th>
-                            <th class="py-2.5 px-3 font-medium">Статус</th>
-                            <th class="py-2.5 px-3 font-medium">Длительность</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('emergency.colText') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('emergency.colTarget') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.status') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('emergency.colDuration') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -302,7 +304,7 @@ onMounted(load);
                                         variant="primary"
                                         @click="activate(message)"
                                     >
-                                        ▶ Активировать
+                                        ▶ {{ $t('emergency.activate') }}
                                     </Btn>
                                     <Btn
                                         v-else
@@ -310,10 +312,10 @@ onMounted(load);
                                         variant="secondary"
                                         @click="deactivate(message)"
                                     >
-                                        ⏹ Остановить
+                                        ⏹ {{ $t('emergency.stop') }}
                                     </Btn>
-                                    <Btn size="sm" variant="ghost" @click="openEdit(message)">Изменить</Btn>
-                                    <Btn size="sm" variant="danger" @click="remove(message)">🗑 Удалить</Btn>
+                                    <Btn size="sm" variant="ghost" @click="openEdit(message)">{{ $t('common.edit') }}</Btn>
+                                    <Btn size="sm" variant="danger" @click="remove(message)">🗑 {{ $t('common.delete') }}</Btn>
                                 </div>
                             </td>
                         </tr>
@@ -325,14 +327,14 @@ onMounted(load);
         <Modal
             v-model="showModal"
             size="lg"
-            :title="editingId ? 'Изменить сообщение' : activateAfterCreate ? '🚨 Показать срочно' : 'Новое экстренное сообщение'"
+            :title="editingId ? $t('emergency.editTitle') : activateAfterCreate ? '🚨 ' + $t('emergency.showUrgent') : $t('emergency.newTitle')"
         >
             <Wizard
                 v-model="step"
                 :steps="wizardSteps"
                 :validate="validateStep"
                 :loading="saving"
-                :finish-text="editingId ? 'Сохранить' : activateAfterCreate ? '🚨 Показать срочно' : 'Сохранить'"
+                :finish-text="editingId ? $t('common.save') : activateAfterCreate ? '🚨 ' + $t('emergency.showUrgent') : $t('common.save')"
                 @finish="save"
                 @cancel="showModal = false"
             >
@@ -343,50 +345,50 @@ onMounted(load);
                         :style="{ backgroundColor: form.background_color, color: form.text_color, fontSize: Math.min(Number(form.font_size) || 48, 24) + 'px' }"
                         :class="{ 'animate-pulse': form.blink }"
                     >
-                        {{ form.text || 'Предпросмотр сообщения' }}
+                        {{ form.text || $t('emergency.previewPlaceholder') }}
                     </div>
 
                     <!-- Step 1: Текст -->
                     <div v-if="s === 0" class="space-y-4">
-                        <FormField label="Текст" required :error="errors.text">
+                        <FormField :label="$t('emergency.colText')" required :error="errors.text">
                             <textarea
                                 v-model="form.text"
                                 rows="3"
                                 class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
                             />
                         </FormField>
-                        <FormField label="Заголовок" hint="Необязательно, для админки" :error="errors.title">
-                            <TextInput v-model="form.title" placeholder="Например: Внимание" />
+                        <FormField :label="$t('emergency.titleLabel')" :hint="$t('emergency.titleHint')" :error="errors.title">
+                            <TextInput v-model="form.title" :placeholder="$t('emergency.titlePlaceholder')" />
                         </FormField>
                     </div>
 
                     <!-- Step 2: Оформление -->
                     <div v-else-if="s === 1" class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Стиль показа" :error="errors.display_style">
+                            <FormField :label="$t('emergency.displayStyle')" :error="errors.display_style">
                                 <SelectInput v-model="form.display_style" :options="displayStyles" />
                             </FormField>
-                            <FormField v-if="form.display_style === 'banner'" label="Позиция плашки" :error="errors.position">
+                            <FormField v-if="form.display_style === 'banner'" :label="$t('emergency.bannerPosition')" :error="errors.position">
                                 <SelectInput v-model="form.position" :options="positions" />
                             </FormField>
-                            <FormField label="Размер шрифта (px)" :error="errors.font_size">
+                            <FormField :label="$t('emergency.fontSize')" :error="errors.font_size">
                                 <TextInput v-model="form.font_size" type="number" />
                             </FormField>
-                            <FormField label="Мигание">
+                            <FormField :label="$t('emergency.blink')">
                                 <div class="flex items-center gap-2 h-9">
                                     <Toggle v-model="form.blink" />
-                                    <span class="text-sm text-slate-600">{{ form.blink ? 'Вкл' : 'Выкл' }}</span>
+                                    <span class="text-sm text-slate-600">{{ form.blink ? $t('emergency.on') : $t('emergency.off') }}</span>
                                 </div>
                             </FormField>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Цвет фона" :error="errors.background_color">
+                            <FormField :label="$t('emergency.backgroundColor')" :error="errors.background_color">
                                 <div class="flex items-center gap-2">
                                     <input v-model="form.background_color" type="color" class="h-10 w-12 shrink-0 rounded-lg border border-slate-300 cursor-pointer" />
                                     <span class="text-xs text-slate-500 font-mono">{{ form.background_color }}</span>
                                 </div>
                             </FormField>
-                            <FormField label="Цвет текста" :error="errors.text_color">
+                            <FormField :label="$t('emergency.textColor')" :error="errors.text_color">
                                 <div class="flex items-center gap-2">
                                     <input v-model="form.text_color" type="color" class="h-10 w-12 shrink-0 rounded-lg border border-slate-300 cursor-pointer" />
                                     <span class="text-xs text-slate-500 font-mono">{{ form.text_color }}</span>
@@ -398,20 +400,20 @@ onMounted(load);
                     <!-- Step 3: Расписание / назначение -->
                     <div v-else-if="s === 2" class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Назначение" :error="errors.target_type">
+                            <FormField :label="$t('emergency.colTarget')" :error="errors.target_type">
                                 <SelectInput v-model="form.target_type" :options="targetTypes" />
                             </FormField>
-                            <FormField label="Длительность (сек)" hint="Пусто = вручную" :error="errors.duration_seconds">
-                                <TextInput v-model="form.duration_seconds" type="number" placeholder="Вручную" />
+                            <FormField :label="$t('emergency.durationLabel')" :hint="$t('emergency.durationHint')" :error="errors.duration_seconds">
+                                <TextInput v-model="form.duration_seconds" type="number" :placeholder="$t('emergency.manual')" />
                             </FormField>
                         </div>
                         <div class="border-t border-slate-100 pt-4">
-                            <p class="text-sm font-medium text-slate-600 mb-2">Расписание <span class="text-slate-400 font-normal">(необязательно)</span></p>
+                            <p class="text-sm font-medium text-slate-600 mb-2">{{ $t('emergency.stepSchedule') }} <span class="text-slate-400 font-normal">({{ $t('common.optional') }})</span></p>
                             <div class="grid grid-cols-2 gap-4">
-                                <FormField label="Показать с" hint="Отложенный старт" :error="errors.scheduled_start">
+                                <FormField :label="$t('emergency.showFrom')" :hint="$t('emergency.showFromHint')" :error="errors.scheduled_start">
                                     <TextInput v-model="form.scheduled_start" type="datetime-local" />
                                 </FormField>
-                                <FormField label="Снять в" hint="Авто-выключение" :error="errors.scheduled_end">
+                                <FormField :label="$t('emergency.hideAt')" :hint="$t('emergency.hideAtHint')" :error="errors.scheduled_end">
                                     <TextInput v-model="form.scheduled_end" type="datetime-local" />
                                 </FormField>
                             </div>

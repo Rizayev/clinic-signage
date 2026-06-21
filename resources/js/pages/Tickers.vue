@@ -1,5 +1,6 @@
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -18,6 +19,7 @@ import Wizard from '@/components/ui/Wizard.vue';
 
 const toast = useToast();
 const { confirm } = useConfirm();
+const { t } = useI18n();
 
 const tickers = ref([]);
 const loading = ref(true);
@@ -28,29 +30,29 @@ const editingId = ref(null);
 const step = ref(0);
 const errors = reactive({});
 
-const wizardSteps = [
-    { label: 'Текст' },
-    { label: 'Оформление' },
-    { label: 'Расписание' },
-    { label: 'Назначение' },
-];
+const wizardSteps = computed(() => [
+    { label: t('tickers.stepText') },
+    { label: t('tickers.stepStyling') },
+    { label: t('tickers.stepSchedule') },
+    { label: t('tickers.stepTargeting') },
+]);
 
 function validateStep(i) {
-    if (i === 0 && !form.text.trim()) return 'Введите текст бегущей строки';
+    if (i === 0 && !form.text.trim()) return t('tickers.validationText');
     return true;
 }
 
-const positions = [
-    { value: 'top', label: 'Сверху' },
-    { value: 'bottom', label: 'Снизу' },
-];
+const positions = computed(() => [
+    { value: 'top', label: t('tickers.positionTop') },
+    { value: 'bottom', label: t('tickers.positionBottom') },
+]);
 
-const targetTypes = [
-    { value: 'all', label: 'Все экраны' },
-    { value: 'branch', label: 'Филиал' },
-    { value: 'zone', label: 'Зона' },
-    { value: 'device', label: 'Устройство' },
-];
+const targetTypes = computed(() => [
+    { value: 'all', label: t('tickers.targetAll') },
+    { value: 'branch', label: t('tickers.targetBranch') },
+    { value: 'zone', label: t('tickers.targetZone') },
+    { value: 'device', label: t('tickers.targetDevice') },
+]);
 
 const targetColors = {
     all: 'indigo',
@@ -91,11 +93,11 @@ const toTimeInput = (v) => {
 const form = reactive(emptyForm());
 
 function targetLabel(type) {
-    return targetTypes.find((t) => t.value === type)?.label ?? type ?? '—';
+    return targetTypes.value.find((x) => x.value === type)?.label ?? type ?? '—';
 }
 
 function positionLabel(pos) {
-    return positions.find((p) => p.value === pos)?.label ?? pos ?? '—';
+    return positions.value.find((p) => p.value === pos)?.label ?? pos ?? '—';
 }
 
 function clearErrors() {
@@ -117,7 +119,7 @@ async function load() {
         const { data } = await api.get('/tickers');
         tickers.value = data.data ?? [];
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить бегущие строки.');
+        toast.error(e?.response?.data?.message || t('tickers.loadError'));
     } finally {
         loading.value = false;
     }
@@ -186,11 +188,11 @@ async function save() {
             await api.post('/tickers', payload);
         }
         showModal.value = false;
-        toast.success(editingId.value ? 'Бегущая строка обновлена' : 'Бегущая строка создана');
+        toast.success(editingId.value ? t('tickers.updated') : t('tickers.created'));
         await load();
     } catch (e) {
         applyValidationErrors(e);
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить бегущую строку.');
+        toast.error(e?.response?.data?.message || t('tickers.saveError'));
     } finally {
         saving.value = false;
     }
@@ -213,29 +215,29 @@ async function toggleActive(ticker) {
             target_id: ticker.target_id ?? null,
             is_active: next,
         });
-        toast.success(next ? 'Строка включена' : 'Строка выключена');
+        toast.success(next ? t('tickers.enabled') : t('tickers.disabled'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось изменить статус.');
+        toast.error(e?.response?.data?.message || t('tickers.statusError'));
     }
 }
 
 async function remove(ticker) {
-    const name = ticker.title || ticker.text || 'бегущую строку';
+    const name = ticker.title || ticker.text || t('tickers.defaultName');
     if (
         !(await confirm({
-            title: 'Удалить бегущую строку?',
-            message: `Удалить «${name}»?`,
-            confirmText: 'Удалить',
+            title: t('tickers.confirmDeleteTitle'),
+            message: t('tickers.confirmDeleteMessage', { name }),
+            confirmText: t('common.delete'),
         }))
     )
         return;
     try {
         await api.delete(`/tickers/${ticker.id}`);
-        toast.success('Бегущая строка удалена');
+        toast.success(t('tickers.deleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить бегущую строку.');
+        toast.error(e?.response?.data?.message || t('tickers.deleteError'));
     }
 }
 
@@ -244,24 +246,24 @@ onMounted(load);
 
 <template>
     <div>
-        <PageHeader title="Бегущие строки" subtitle="Текстовые сообщения на экранах">
+        <PageHeader :title="$t('tickers.pageTitle')" :subtitle="$t('tickers.pageSubtitle')">
             <template #actions>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
-                <Btn variant="primary" @click="openCreate">+ Добавить строку</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('tickers.refresh') }}</Btn>
+                <Btn variant="primary" @click="openCreate">{{ $t('tickers.addTicker') }}</Btn>
             </template>
         </PageHeader>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
 
             <EmptyState
                 v-else-if="!tickers.length"
                 icon="↔"
-                title="Пока нет бегущих строк"
-                hint="Создайте первую строку, чтобы показывать текстовые сообщения на экранах."
+                :title="$t('tickers.emptyTitle')"
+                :hint="$t('tickers.emptyHint')"
             >
                 <template #action>
-                    <Btn variant="primary" @click="openCreate">+ Добавить строку</Btn>
+                    <Btn variant="primary" @click="openCreate">{{ $t('tickers.addTicker') }}</Btn>
                 </template>
             </EmptyState>
 
@@ -269,13 +271,13 @@ onMounted(load);
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Текст</th>
-                            <th class="py-2.5 px-3 font-medium">Позиция</th>
-                            <th class="py-2.5 px-3 font-medium">Скорость</th>
-                            <th class="py-2.5 px-3 font-medium">Цвета</th>
-                            <th class="py-2.5 px-3 font-medium">Назначение</th>
-                            <th class="py-2.5 px-3 font-medium">Активна</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colText') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colPosition') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colSpeed') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colColors') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colTarget') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('tickers.colActive') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -300,7 +302,7 @@ onMounted(load);
                                 </div>
                             </td>
                             <td class="py-2.5 px-3 text-slate-600">{{ positionLabel(ticker.position) }}</td>
-                            <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap">{{ ticker.speed }} px/с</td>
+                            <td class="py-2.5 px-3 text-slate-600 whitespace-nowrap">{{ ticker.speed }} {{ $t('tickers.speedUnit') }}</td>
                             <td class="py-2.5 px-3">
                                 <div class="flex items-center gap-3">
                                     <span class="inline-flex items-center gap-1.5">
@@ -331,8 +333,8 @@ onMounted(load);
                                 />
                             </td>
                             <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                                <Btn size="sm" variant="ghost" @click="openEdit(ticker)">Изменить</Btn>
-                                <Btn size="sm" variant="danger" @click="remove(ticker)">🗑 Удалить</Btn>
+                                <Btn size="sm" variant="ghost" @click="openEdit(ticker)">{{ $t('common.edit') }}</Btn>
+                                <Btn size="sm" variant="danger" @click="remove(ticker)">🗑 {{ $t('common.delete') }}</Btn>
                             </td>
                         </tr>
                     </tbody>
@@ -342,7 +344,7 @@ onMounted(load);
 
         <Modal
             v-model="showModal"
-            :title="editingId ? 'Изменить строку' : 'Новая бегущая строка'"
+            :title="editingId ? $t('tickers.modalEditTitle') : $t('tickers.modalCreateTitle')"
             size="lg"
         >
             <Wizard
@@ -350,7 +352,7 @@ onMounted(load);
                 :steps="wizardSteps"
                 :validate="validateStep"
                 :loading="saving"
-                :finish-text="editingId ? 'Сохранить' : 'Создать'"
+                :finish-text="editingId ? $t('common.save') : $t('common.create')"
                 @finish="save"
                 @cancel="showModal = false"
             >
@@ -361,81 +363,80 @@ onMounted(load);
                         :style="{ background: form.background_color, color: form.text_color, opacity: form.opacity }"
                     >
                         <span :style="{ fontSize: Math.min(Number(form.font_size) || 28, 22) + 'px' }">
-                            {{ form.text || 'Предпросмотр бегущей строки' }}
+                            {{ form.text || $t('tickers.previewPlaceholder') }}
                         </span>
                     </div>
 
                     <!-- Step 1: Текст -->
                     <div v-if="s === 0" class="space-y-4">
-                        <FormField label="Текст" required :error="errors.text">
-                            <TextInput v-model="form.text" placeholder="Текст бегущей строки" />
+                        <FormField :label="$t('tickers.fieldText')" required :error="errors.text">
+                            <TextInput v-model="form.text" :placeholder="$t('tickers.placeholderText')" />
                         </FormField>
-                        <FormField label="Заголовок" :error="errors.title" hint="Необязательно, для админки">
-                            <TextInput v-model="form.title" placeholder="Например: Объявление" />
+                        <FormField :label="$t('tickers.fieldTitle')" :error="errors.title" :hint="$t('tickers.hintTitle')">
+                            <TextInput v-model="form.title" :placeholder="$t('tickers.placeholderTitle')" />
                         </FormField>
                     </div>
 
                     <!-- Step 2: Оформление -->
                     <div v-else-if="s === 1" class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Позиция" :error="errors.position">
+                            <FormField :label="$t('tickers.fieldPosition')" :error="errors.position">
                                 <SelectInput v-model="form.position" :options="positions" />
                             </FormField>
-                            <FormField label="Скорость (px/с)" :error="errors.speed">
+                            <FormField :label="$t('tickers.fieldSpeed')" :error="errors.speed">
                                 <TextInput v-model="form.speed" type="number" />
                             </FormField>
                         </div>
-                        <FormField label="Размер шрифта" :error="errors.font_size">
+                        <FormField :label="$t('tickers.fieldFontSize')" :error="errors.font_size">
                             <TextInput v-model="form.font_size" type="number" />
                         </FormField>
                         <div class="grid grid-cols-2 gap-4">
-                            <FormField label="Цвет текста" :error="errors.text_color">
+                            <FormField :label="$t('tickers.fieldTextColor')" :error="errors.text_color">
                                 <div class="flex items-center gap-2">
                                     <input v-model="form.text_color" type="color" class="h-9 w-12 rounded-lg border border-slate-300 cursor-pointer" />
                                     <span class="text-xs text-slate-500">{{ form.text_color }}</span>
                                 </div>
                             </FormField>
-                            <FormField label="Цвет фона" :error="errors.background_color">
+                            <FormField :label="$t('tickers.fieldBgColor')" :error="errors.background_color">
                                 <div class="flex items-center gap-2">
                                     <input v-model="form.background_color" type="color" class="h-9 w-12 rounded-lg border border-slate-300 cursor-pointer" />
                                     <span class="text-xs text-slate-500">{{ form.background_color }}</span>
                                 </div>
                             </FormField>
                         </div>
-                        <FormField label="Прозрачность" :error="errors.opacity" :hint="`0 — прозрачно, 1 — непрозрачно (${Number(form.opacity).toFixed(2)})`">
+                        <FormField :label="$t('tickers.fieldOpacity')" :error="errors.opacity" :hint="$t('tickers.hintOpacity', { value: Number(form.opacity).toFixed(2) })">
                             <TextInput v-model="form.opacity" type="number" />
                         </FormField>
                     </div>
 
                     <!-- Step 3: Расписание -->
                     <div v-else-if="s === 2" class="space-y-4">
-                        <p class="text-sm text-slate-500">Все поля необязательны. Оставьте пустыми для постоянного показа.</p>
+                        <p class="text-sm text-slate-500">{{ $t('tickers.scheduleIntro') }}</p>
                         <div>
-                            <p class="text-sm font-medium text-slate-600 mb-2">Окно показа</p>
+                            <p class="text-sm font-medium text-slate-600 mb-2">{{ $t('tickers.displayWindow') }}</p>
                             <div class="grid grid-cols-2 gap-4">
-                                <FormField label="С даты" :error="errors.start_date"><TextInput v-model="form.start_date" type="date" /></FormField>
-                                <FormField label="По дату" :error="errors.end_date"><TextInput v-model="form.end_date" type="date" /></FormField>
-                                <FormField label="С времени" :error="errors.start_time"><TextInput v-model="form.start_time" type="time" /></FormField>
-                                <FormField label="По время" :error="errors.end_time"><TextInput v-model="form.end_time" type="time" /></FormField>
+                                <FormField :label="$t('tickers.fieldStartDate')" :error="errors.start_date"><TextInput v-model="form.start_date" type="date" /></FormField>
+                                <FormField :label="$t('tickers.fieldEndDate')" :error="errors.end_date"><TextInput v-model="form.end_date" type="date" /></FormField>
+                                <FormField :label="$t('tickers.fieldStartTime')" :error="errors.start_time"><TextInput v-model="form.start_time" type="time" /></FormField>
+                                <FormField :label="$t('tickers.fieldEndTime')" :error="errors.end_time"><TextInput v-model="form.end_time" type="time" /></FormField>
                             </div>
                         </div>
                         <div class="border-t border-slate-100 pt-4">
-                            <p class="text-sm font-medium text-slate-600 mb-2">Периодический показ</p>
+                            <p class="text-sm font-medium text-slate-600 mb-2">{{ $t('tickers.recurringDisplay') }}</p>
                             <div class="grid grid-cols-2 gap-4">
-                                <FormField label="Показывать каждые (мин)" hint="Пусто = постоянно" :error="errors.interval_minutes">
-                                    <TextInput v-model="form.interval_minutes" type="number" placeholder="напр. 30" />
+                                <FormField :label="$t('tickers.fieldInterval')" :hint="$t('tickers.hintInterval')" :error="errors.interval_minutes">
+                                    <TextInput v-model="form.interval_minutes" type="number" :placeholder="$t('tickers.placeholderInterval')" />
                                 </FormField>
-                                <FormField label="Длительность показа (мин)" hint="Сколько минут видна за цикл" :error="errors.duration_minutes">
-                                    <TextInput v-model="form.duration_minutes" type="number" placeholder="напр. 5" />
+                                <FormField :label="$t('tickers.fieldDuration')" :hint="$t('tickers.hintDuration')" :error="errors.duration_minutes">
+                                    <TextInput v-model="form.duration_minutes" type="number" :placeholder="$t('tickers.placeholderDuration')" />
                                 </FormField>
                             </div>
                             <p class="text-xs text-slate-400 mt-1">
-                                Напр. «каждые 30 / длительность 5» — строка показывается 5 минут, затем
-                                скрывается на 25, и так по кругу. Без «каждые …» — длительность считается один раз от включения.
+                                {{ $t('tickers.recurringExplanation') }}
                             </p>
                         </div>
                         <div class="border-t border-slate-100 pt-4">
-                            <FormField label="Повторов прокрутки" hint="Пусто = бесконечно (за время показа)" :error="errors.repeat_count">
+                            <FormField :label="$t('tickers.fieldRepeatCount')" :hint="$t('tickers.hintRepeatCount')" :error="errors.repeat_count">
                                 <TextInput v-model="form.repeat_count" type="number" placeholder="∞" />
                             </FormField>
                         </div>
@@ -443,13 +444,13 @@ onMounted(load);
 
                     <!-- Step 4: Назначение -->
                     <div v-else-if="s === 3" class="space-y-4">
-                        <FormField label="Назначение" :error="errors.target_type" hint="На какие экраны показывать">
+                        <FormField :label="$t('tickers.fieldTarget')" :error="errors.target_type" :hint="$t('tickers.hintTarget')">
                             <SelectInput v-model="form.target_type" :options="targetTypes" />
                         </FormField>
-                        <FormField label="Активна">
+                        <FormField :label="$t('tickers.fieldActive')">
                             <div class="flex items-center gap-2">
                                 <Toggle v-model="form.is_active" />
-                                <span class="text-sm text-slate-600">{{ form.is_active ? 'Включена' : 'Выключена' }}</span>
+                                <span class="text-sm text-slate-600">{{ form.is_active ? $t('tickers.toggleEnabled') : $t('tickers.toggleDisabled') }}</span>
                             </div>
                         </FormField>
                     </div>

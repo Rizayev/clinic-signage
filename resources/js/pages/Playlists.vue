@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -19,6 +20,7 @@ import SelectInput from '@/components/ui/SelectInput.vue';
 const router = useRouter();
 const toast = useToast();
 const { confirm } = useConfirm();
+const { t } = useI18n();
 
 const playlists = ref([]);
 const branches = ref([]);
@@ -39,7 +41,7 @@ async function load() {
         const { data } = await api.get('/playlists');
         playlists.value = data.data ?? data;
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить плейлисты.');
+        toast.error(e?.response?.data?.message || t('playlists.loadError'));
     } finally {
         loading.value = false;
     }
@@ -63,7 +65,7 @@ function openCreate() {
 async function create() {
     errors.value = {};
     if (!form.value.name.trim()) {
-        errors.value.name = 'Укажите название плейлиста.';
+        errors.value.name = t('playlists.nameRequired');
         return;
     }
     saving.value = true;
@@ -78,7 +80,7 @@ async function create() {
         const { data } = await api.post('/playlists', payload);
         const created = data.data ?? data;
         showCreate.value = false;
-        toast.success('Плейлист создан');
+        toast.success(t('playlists.created'));
         if (created?.id) {
             router.push(`/playlists/${created.id}`);
         } else {
@@ -92,7 +94,7 @@ async function create() {
             }
             errors.value = mapped;
         }
-        toast.error(e?.response?.data?.message || 'Не удалось создать плейлист.');
+        toast.error(e?.response?.data?.message || t('playlists.createError'));
     } finally {
         saving.value = false;
     }
@@ -100,16 +102,16 @@ async function create() {
 
 async function remove(playlist) {
     if (!(await confirm({
-        title: 'Удалить плейлист?',
-        message: `Удалить плейлист «${playlist.name}»?`,
-        confirmText: 'Удалить',
+        title: t('playlists.deleteTitle'),
+        message: t('playlists.deleteMessage', { name: playlist.name }),
+        confirmText: t('common.delete'),
     }))) return;
     try {
         await api.delete(`/playlists/${playlist.id}`);
-        toast.success('Плейлист удалён');
+        toast.success(t('playlists.deleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить плейлист.');
+        toast.error(e?.response?.data?.message || t('playlists.deleteError'));
     }
 }
 
@@ -124,24 +126,24 @@ onMounted(() => {
 
 <template>
     <div>
-        <PageHeader title="Плейлисты" subtitle="Списки воспроизведения для экранов">
+        <PageHeader :title="$t('playlists.title')" :subtitle="$t('playlists.subtitle')">
             <template #actions>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
-                <Btn variant="primary" @click="openCreate">+ Создать плейлист</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('playlists.refresh') }}</Btn>
+                <Btn variant="primary" @click="openCreate">{{ $t('playlists.createPlaylist') }}</Btn>
             </template>
         </PageHeader>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" center />
+            <Spinner v-if="loading" :label="$t('common.loading')" center />
 
             <EmptyState
                 v-else-if="!playlists.length"
                 icon="🎬"
-                title="Пока нет плейлистов"
-                hint="Создайте первый плейлист, чтобы запланировать показ медиа на экранах."
+                :title="$t('playlists.emptyTitle')"
+                :hint="$t('playlists.emptyHint')"
             >
                 <template #action>
-                    <Btn variant="primary" @click="openCreate">+ Создать плейлист</Btn>
+                    <Btn variant="primary" @click="openCreate">{{ $t('playlists.createPlaylist') }}</Btn>
                 </template>
             </EmptyState>
 
@@ -149,11 +151,11 @@ onMounted(() => {
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Название</th>
-                            <th class="py-2.5 px-3 font-medium">Элементы</th>
-                            <th class="py-2.5 px-3 font-medium">Статус</th>
-                            <th class="py-2.5 px-3 font-medium">Версия</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.name') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('playlists.items') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.status') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('playlists.version') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -186,9 +188,9 @@ onMounted(() => {
                             </td>
                             <td class="py-2.5 px-3 text-right whitespace-nowrap">
                                 <RouterLink :to="`/playlists/${p.id}`" class="inline-block mr-2">
-                                    <Btn variant="secondary" size="sm">Редактировать</Btn>
+                                    <Btn variant="secondary" size="sm">{{ $t('common.edit') }}</Btn>
                                 </RouterLink>
-                                <Btn variant="danger" size="sm" @click="remove(p)">🗑 Удалить</Btn>
+                                <Btn variant="danger" size="sm" @click="remove(p)">🗑 {{ $t('common.delete') }}</Btn>
                             </td>
                         </tr>
                     </tbody>
@@ -196,25 +198,25 @@ onMounted(() => {
             </div>
         </Card>
 
-        <Modal v-model="showCreate" title="Создать плейлист">
+        <Modal v-model="showCreate" :title="$t('playlists.createTitle')">
             <form @submit.prevent="create" class="space-y-4">
-                <FormField label="Название" required :error="errors.name">
-                    <TextInput v-model="form.name" placeholder="Например, Главный экран" />
+                <FormField :label="$t('common.name')" required :error="errors.name">
+                    <TextInput v-model="form.name" :placeholder="$t('playlists.namePlaceholder')" />
                 </FormField>
-                <FormField label="Описание" :error="errors.description">
-                    <TextInput v-model="form.description" placeholder="Необязательно" />
+                <FormField :label="$t('common.description')" :error="errors.description">
+                    <TextInput v-model="form.description" :placeholder="$t('common.optional')" />
                 </FormField>
-                <FormField label="Филиал" :error="errors.branch_id">
+                <FormField :label="$t('playlists.branch')" :error="errors.branch_id">
                     <SelectInput
                         v-model="form.branch_id"
                         :options="branchOptions()"
-                        placeholder="Все филиалы"
+                        :placeholder="$t('playlists.allBranches')"
                     />
                 </FormField>
             </form>
             <template #footer>
-                <Btn variant="secondary" @click="showCreate = false">Отмена</Btn>
-                <Btn variant="primary" :loading="saving" @click="create">Создать</Btn>
+                <Btn variant="secondary" @click="showCreate = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="saving" @click="create">{{ $t('common.create') }}</Btn>
             </template>
         </Modal>
     </div>

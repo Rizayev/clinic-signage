@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -14,6 +15,7 @@ import FormField from '@/components/ui/FormField.vue';
 import TextInput from '@/components/ui/TextInput.vue';
 import SelectInput from '@/components/ui/SelectInput.vue';
 
+const { t } = useI18n();
 const toast = useToast();
 const { confirm } = useConfirm();
 
@@ -24,11 +26,11 @@ const loading = ref(true);
 const typeFilter = ref('');
 const search = ref('');
 
-const typeOptions = [
-    { value: '', label: 'Все типы' },
-    { value: 'video', label: 'Видео' },
-    { value: 'image', label: 'Изображение' },
-];
+const typeOptions = computed(() => [
+    { value: '', label: t('media.allTypes') },
+    { value: 'video', label: t('media.video') },
+    { value: 'image', label: t('media.image') },
+]);
 
 // upload state
 const uploadFile = ref(null);
@@ -53,13 +55,13 @@ const replaceInput = ref(null);
 const replaceItem = ref(null);
 const replaceSaving = ref(false);
 
-const typeLabels = {
-    video: 'Видео',
-    image: 'Изображение',
-    audio: 'Аудио',
+const typeLabels = computed(() => ({
+    video: t('media.video'),
+    image: t('media.image'),
+    audio: t('media.audio'),
     html: 'HTML',
-    text: 'Текст',
-};
+    text: t('media.text'),
+}));
 
 const typeBadgeColor = {
     video: 'indigo',
@@ -80,8 +82,8 @@ const typeIcon = {
 function formatBytes(bytes) {
     if (bytes === null || bytes === undefined || Number.isNaN(Number(bytes))) return '—';
     const b = Number(bytes);
-    if (b === 0) return '0 Б';
-    const units = ['Б', 'КБ', 'МБ', 'ГБ', 'ТБ'];
+    if (b === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(b) / Math.log(1024));
     const value = b / Math.pow(1024, i);
     return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
@@ -104,7 +106,7 @@ async function load() {
         const { data } = await api.get('/media', { params });
         items.value = data.data ?? data ?? [];
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить медиатеку.');
+        toast.error(e?.response?.data?.message || t('media.loadFailed'));
     } finally {
         loading.value = false;
     }
@@ -120,7 +122,7 @@ function onFileChange(e) {
 
 async function submitUpload() {
     if (!uploadFile.value) {
-        toast.error('Выберите файл.');
+        toast.error(t('media.selectFile'));
         return;
     }
     uploading.value = true;
@@ -142,10 +144,10 @@ async function submitUpload() {
         uploadTitle.value = '';
         uploadCategory.value = '';
         if (uploadInput.value) uploadInput.value.value = '';
-        toast.success('Файл загружен');
+        toast.success(t('media.fileUploaded'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить файл.');
+        toast.error(e?.response?.data?.message || t('media.uploadFailed'));
     } finally {
         uploading.value = false;
         uploadProgress.value = 0;
@@ -169,10 +171,10 @@ async function submitRename() {
     try {
         await api.put(`/media/${renameItem.value.id}`, { title: renameTitle.value });
         renameOpen.value = false;
-        toast.success('Название обновлено');
+        toast.success(t('media.titleUpdated'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось переименовать.');
+        toast.error(e?.response?.data?.message || t('media.renameFailed'));
     } finally {
         renameSaving.value = false;
     }
@@ -196,10 +198,10 @@ async function onReplaceChange(e) {
         await api.post(`/media/${replaceItem.value.id}/replace`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
-        toast.success('Файл заменён');
+        toast.success(t('media.fileReplaced'));
         await load();
     } catch (err) {
-        toast.error(err?.response?.data?.message || 'Не удалось заменить файл.');
+        toast.error(err?.response?.data?.message || t('media.replaceFailed'));
     } finally {
         replaceSaving.value = false;
         replaceItem.value = null;
@@ -208,13 +210,13 @@ async function onReplaceChange(e) {
 }
 
 async function remove(item) {
-    if (!(await confirm({ title: 'Удалить файл?', message: `Удалить «${item.title}»?`, confirmText: 'Удалить' }))) return;
+    if (!(await confirm({ title: t('media.deleteFileTitle'), message: t('media.deleteFileMessage', { title: item.title }), confirmText: t('common.delete') }))) return;
     try {
         await api.delete(`/media/${item.id}`);
-        toast.success('Файл удалён');
+        toast.success(t('media.fileDeleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить.');
+        toast.error(e?.response?.data?.message || t('media.deleteFailed'));
     }
 }
 
@@ -225,13 +227,13 @@ onMounted(load);
 
 <template>
     <div>
-        <PageHeader title="Медиатека" subtitle="Загрузка и управление медиафайлами" />
+        <PageHeader :title="$t('media.title')" :subtitle="$t('media.subtitle')" />
 
         <!-- Upload -->
-        <Card title="Загрузить файл" class="mb-4">
+        <Card :title="$t('media.uploadFile')" class="mb-4">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
                 <div class="md:col-span-2">
-                    <FormField label="Файл">
+                    <FormField :label="$t('media.file')">
                         <input
                             ref="uploadInput"
                             type="file"
@@ -242,11 +244,11 @@ onMounted(load);
                         />
                     </FormField>
                 </div>
-                <FormField label="Название">
-                    <TextInput v-model="uploadTitle" placeholder="Название" :disabled="uploading" />
+                <FormField :label="$t('common.name')">
+                    <TextInput v-model="uploadTitle" :placeholder="$t('common.name')" :disabled="uploading" />
                 </FormField>
-                <FormField label="Категория">
-                    <TextInput v-model="uploadCategory" placeholder="Категория" :disabled="uploading" />
+                <FormField :label="$t('media.category')">
+                    <TextInput v-model="uploadCategory" :placeholder="$t('media.category')" :disabled="uploading" />
                 </FormField>
             </div>
 
@@ -257,12 +259,12 @@ onMounted(load);
                         :style="{ width: uploadProgress + '%' }"
                     />
                 </div>
-                <p class="text-xs text-slate-500 mt-1">Загрузка… {{ uploadProgress }}%</p>
+                <p class="text-xs text-slate-500 mt-1">{{ $t('media.uploadingProgress', { progress: uploadProgress }) }}</p>
             </div>
 
             <div class="mt-4 flex justify-end">
                 <Btn :loading="uploading" :disabled="!uploadFile" @click="submitUpload">
-                    {{ uploading ? 'Загрузка…' : '⬆ Загрузить' }}
+                    {{ uploading ? $t('media.uploading') : '⬆ ' + $t('media.upload') }}
                 </Btn>
             </div>
         </Card>
@@ -278,22 +280,22 @@ onMounted(load);
                 />
                 <TextInput
                     v-model="search"
-                    placeholder="Поиск…"
+                    :placeholder="$t('media.searchPlaceholder')"
                     class="flex-1 min-w-[200px]"
                     @keyup.enter="load"
                 />
-                <Btn variant="secondary" @click="load">Найти</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('media.find') }}</Btn>
             </div>
         </Card>
 
         <!-- Grid -->
         <Card v-if="loading || !hasItems">
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
             <EmptyState
                 v-else
                 icon="🎞"
-                title="Пока нет медиафайлов"
-                hint="Загрузите видео или изображение с помощью формы выше."
+                :title="$t('media.emptyTitle')"
+                :hint="$t('media.emptyHint')"
             />
         </Card>
 
@@ -333,9 +335,9 @@ onMounted(load);
                 </div>
 
                 <div class="mt-3 flex flex-wrap gap-2">
-                    <Btn size="sm" variant="ghost" @click="openRename(item)">Переименовать</Btn>
-                    <Btn size="sm" variant="ghost" :loading="replaceSaving && replaceItem?.id === item.id" @click="triggerReplace(item)">Заменить</Btn>
-                    <Btn size="sm" variant="danger" @click="remove(item)">🗑 Удалить</Btn>
+                    <Btn size="sm" variant="ghost" @click="openRename(item)">{{ $t('media.rename') }}</Btn>
+                    <Btn size="sm" variant="ghost" :loading="replaceSaving && replaceItem?.id === item.id" @click="triggerReplace(item)">{{ $t('media.replace') }}</Btn>
+                    <Btn size="sm" variant="danger" @click="remove(item)">🗑 {{ $t('common.delete') }}</Btn>
                 </div>
             </Card>
         </div>
@@ -350,7 +352,7 @@ onMounted(load);
         />
 
         <!-- Preview modal -->
-        <Modal v-model="previewOpen" :title="previewItem?.title || 'Просмотр'" size="lg">
+        <Modal v-model="previewOpen" :title="previewItem?.title || $t('media.preview')" size="lg">
             <div v-if="previewItem" class="flex items-center justify-center bg-slate-900 rounded-lg overflow-hidden">
                 <video
                     v-if="previewItem.type === 'video' && previewItem.file_url"
@@ -367,42 +369,42 @@ onMounted(load);
                 />
                 <div v-else class="py-16 text-center text-slate-300">
                     <div class="text-5xl mb-2">{{ typeIcon[previewItem.type] || '📁' }}</div>
-                    <p class="text-sm">Предпросмотр недоступен</p>
+                    <p class="text-sm">{{ $t('media.previewUnavailable') }}</p>
                 </div>
             </div>
             <div v-if="previewItem" class="mt-4 grid grid-cols-2 gap-y-1 text-sm">
-                <span class="text-slate-500">Тип</span>
+                <span class="text-slate-500">{{ $t('media.type') }}</span>
                 <span class="text-slate-800">{{ typeLabels[previewItem.type] || previewItem.type }}</span>
                 <template v-if="previewItem.type === 'video'">
-                    <span class="text-slate-500">Длительность</span>
+                    <span class="text-slate-500">{{ $t('media.duration') }}</span>
                     <span class="text-slate-800">{{ formatDuration(previewItem.duration) }}</span>
                 </template>
-                <span class="text-slate-500">Размер</span>
+                <span class="text-slate-500">{{ $t('media.size') }}</span>
                 <span class="text-slate-800">{{ formatBytes(previewItem.size) }}</span>
                 <template v-if="previewItem.width && previewItem.height">
-                    <span class="text-slate-500">Разрешение</span>
+                    <span class="text-slate-500">{{ $t('media.resolution') }}</span>
                     <span class="text-slate-800">{{ previewItem.width }}×{{ previewItem.height }}</span>
                 </template>
                 <template v-if="previewItem.category">
-                    <span class="text-slate-500">Категория</span>
+                    <span class="text-slate-500">{{ $t('media.category') }}</span>
                     <span class="text-slate-800">{{ previewItem.category }}</span>
                 </template>
             </div>
             <template #footer>
-                <Btn variant="secondary" @click="previewOpen = false">Закрыть</Btn>
+                <Btn variant="secondary" @click="previewOpen = false">{{ $t('common.close') }}</Btn>
             </template>
         </Modal>
 
         <!-- Rename modal -->
-        <Modal v-model="renameOpen" title="Переименовать">
+        <Modal v-model="renameOpen" :title="$t('media.rename')">
             <form @submit.prevent="submitRename" class="space-y-4">
-                <FormField label="Название" required>
-                    <TextInput v-model="renameTitle" placeholder="Название" @keyup.enter="submitRename" />
+                <FormField :label="$t('common.name')" required>
+                    <TextInput v-model="renameTitle" :placeholder="$t('common.name')" @keyup.enter="submitRename" />
                 </FormField>
             </form>
             <template #footer>
-                <Btn variant="secondary" @click="renameOpen = false">Отмена</Btn>
-                <Btn :loading="renameSaving" :disabled="!renameTitle" @click="submitRename">Сохранить</Btn>
+                <Btn variant="secondary" @click="renameOpen = false">{{ $t('common.cancel') }}</Btn>
+                <Btn :loading="renameSaving" :disabled="!renameTitle" @click="submitRename">{{ $t('common.save') }}</Btn>
             </template>
         </Modal>
     </div>

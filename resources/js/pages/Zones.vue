@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -16,6 +17,7 @@ import SelectInput from '@/components/ui/SelectInput.vue';
 
 const toast = useToast();
 const { confirm } = useConfirm();
+const { t } = useI18n();
 
 const zones = ref([]);
 const branches = ref([]);
@@ -66,7 +68,7 @@ async function loadBranches() {
         branches.value = data.data ?? [];
     } catch (e) {
         branches.value = [];
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить филиалы.');
+        toast.error(e?.response?.data?.message || t('zones.loadBranchesError'));
     }
 }
 
@@ -79,7 +81,7 @@ async function load() {
         zones.value = data.data ?? [];
     } catch (e) {
         zones.value = [];
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить зоны.');
+        toast.error(e?.response?.data?.message || t('zones.loadError'));
     } finally {
         loading.value = false;
     }
@@ -121,11 +123,11 @@ async function save() {
             await api.post('/zones', payload);
         }
         modalOpen.value = false;
-        toast.success(editingId.value ? 'Зона обновлена' : 'Зона создана');
+        toast.success(editingId.value ? t('zones.updated') : t('zones.created'));
         await load();
     } catch (e) {
         applyValidationErrors(e);
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить зону.');
+        toast.error(e?.response?.data?.message || t('zones.saveError'));
     } finally {
         saving.value = false;
     }
@@ -134,18 +136,18 @@ async function save() {
 async function remove(zone) {
     if (
         !(await confirm({
-            title: 'Удалить зону?',
-            message: `Удалить зону «${zone.name}»?`,
-            confirmText: 'Удалить',
+            title: t('zones.deleteConfirmTitle'),
+            message: t('zones.deleteConfirmMessage', { name: zone.name }),
+            confirmText: t('common.delete'),
         }))
     )
         return;
     try {
         await api.delete(`/zones/${zone.id}`);
-        toast.success('Зона удалена');
+        toast.success(t('zones.deleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить зону.');
+        toast.error(e?.response?.data?.message || t('zones.deleteError'));
     }
 }
 
@@ -157,20 +159,20 @@ onMounted(async () => {
 
 <template>
     <div>
-        <PageHeader title="Зоны" subtitle="Управление зонами в филиалах">
+        <PageHeader :title="$t('zones.title')" :subtitle="$t('zones.subtitle')">
             <template #actions>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
-                <Btn variant="primary" @click="openCreate">+ Добавить зону</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('zones.refresh') }}</Btn>
+                <Btn variant="primary" @click="openCreate">+ {{ $t('zones.addZone') }}</Btn>
             </template>
         </PageHeader>
 
         <Card class="mb-4">
             <div class="flex items-end gap-3">
-                <FormField label="Филиал" class="w-64">
+                <FormField :label="$t('zones.branch')" class="w-64">
                     <SelectInput
                         v-model="branchFilter"
                         :options="branchOptions"
-                        placeholder="Все филиалы"
+                        :placeholder="$t('zones.allBranches')"
                         @update:modelValue="load"
                     />
                 </FormField>
@@ -178,16 +180,16 @@ onMounted(async () => {
         </Card>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
 
             <EmptyState
                 v-else-if="!zones.length"
                 icon="🗺"
-                title="Пока нет зон"
-                hint="Создайте первую зону, чтобы сгруппировать устройства внутри филиала."
+                :title="$t('zones.emptyTitle')"
+                :hint="$t('zones.emptyHint')"
             >
                 <template #action>
-                    <Btn variant="primary" @click="openCreate">+ Добавить зону</Btn>
+                    <Btn variant="primary" @click="openCreate">+ {{ $t('zones.addZone') }}</Btn>
                 </template>
             </EmptyState>
 
@@ -195,12 +197,12 @@ onMounted(async () => {
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Название</th>
-                            <th class="py-2.5 px-3 font-medium">Филиал</th>
-                            <th class="py-2.5 px-3 font-medium">Описание</th>
-                            <th class="py-2.5 px-3 font-medium">Порядок</th>
-                            <th class="py-2.5 px-3 font-medium">Устройства</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.name') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('zones.branch') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.description') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('zones.order') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('zones.devices') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -224,8 +226,8 @@ onMounted(async () => {
                                 <Badge color="indigo">{{ zone.devices_count ?? 0 }}</Badge>
                             </td>
                             <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                                <Btn size="sm" variant="ghost" @click="openEdit(zone)">Изменить</Btn>
-                                <Btn size="sm" variant="danger" @click="remove(zone)">🗑 Удалить</Btn>
+                                <Btn size="sm" variant="ghost" @click="openEdit(zone)">{{ $t('common.edit') }}</Btn>
+                                <Btn size="sm" variant="danger" @click="remove(zone)">🗑 {{ $t('common.delete') }}</Btn>
                             </td>
                         </tr>
                     </tbody>
@@ -233,32 +235,32 @@ onMounted(async () => {
             </div>
         </Card>
 
-        <Modal v-model="modalOpen" :title="editingId ? 'Изменить зону' : 'Новая зона'">
+        <Modal v-model="modalOpen" :title="editingId ? $t('zones.editTitle') : $t('zones.newTitle')">
             <form class="space-y-4" @submit.prevent="save">
-                <FormField label="Филиал" required :error="errors.branch_id">
+                <FormField :label="$t('zones.branch')" required :error="errors.branch_id">
                     <SelectInput
                         v-model="form.branch_id"
                         :options="branchOptions"
-                        placeholder="Выберите филиал"
+                        :placeholder="$t('zones.selectBranch')"
                     />
                 </FormField>
 
-                <FormField label="Название" required :error="errors.name">
-                    <TextInput v-model="form.name" placeholder="Например, Регистратура" />
+                <FormField :label="$t('common.name')" required :error="errors.name">
+                    <TextInput v-model="form.name" :placeholder="$t('zones.namePlaceholder')" />
                 </FormField>
 
-                <FormField label="Описание" :error="errors.description">
-                    <TextInput v-model="form.description" placeholder="Краткое описание зоны" />
+                <FormField :label="$t('common.description')" :error="errors.description">
+                    <TextInput v-model="form.description" :placeholder="$t('zones.descriptionPlaceholder')" />
                 </FormField>
 
-                <FormField label="Порядок сортировки" :error="errors.sort_order">
+                <FormField :label="$t('zones.sortOrder')" :error="errors.sort_order">
                     <TextInput v-model="form.sort_order" type="number" />
                 </FormField>
             </form>
 
             <template #footer>
-                <Btn variant="secondary" @click="modalOpen = false">Отмена</Btn>
-                <Btn variant="primary" :loading="saving" @click="save">Сохранить</Btn>
+                <Btn variant="secondary" @click="modalOpen = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="saving" @click="save">{{ $t('common.save') }}</Btn>
             </template>
         </Modal>
     </div>

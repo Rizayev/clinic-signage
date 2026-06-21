@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -10,6 +11,7 @@ import Badge from '@/components/ui/Badge.vue';
 import Spinner from '@/components/ui/Spinner.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 
+const { t } = useI18n();
 const toast = useToast();
 
 const stats = ref({});
@@ -18,13 +20,13 @@ const emergencyActive = ref(false);
 const loading = ref(true);
 
 const cards = computed(() => [
-    { label: 'Всего ТВ', value: stats.value.devices_total ?? 0, color: 'text-slate-800', icon: '📺' },
-    { label: 'Онлайн', value: stats.value.devices_online ?? 0, color: 'text-green-600', icon: '🟢' },
-    { label: 'Оффлайн', value: stats.value.devices_offline ?? 0, color: 'text-slate-500', icon: '⚪' },
-    { label: 'С ошибкой', value: stats.value.devices_error ?? 0, color: 'text-red-600', icon: '🔴' },
-    { label: 'Активные плейлисты', value: stats.value.playlists_active ?? 0, color: 'text-indigo-600', icon: '🎞️' },
-    { label: 'Активные строки', value: stats.value.tickers_active ?? 0, color: 'text-amber-600', icon: '📝' },
-    { label: 'Медиа', value: stats.value.media_total ?? 0, color: 'text-slate-800', icon: '🖼️' },
+    { label: t('dashboard.statTotalTvs'), value: stats.value.devices_total ?? 0, color: 'text-slate-800', icon: '📺' },
+    { label: t('dashboard.statOnline'), value: stats.value.devices_online ?? 0, color: 'text-green-600', icon: '🟢' },
+    { label: t('dashboard.statOffline'), value: stats.value.devices_offline ?? 0, color: 'text-slate-500', icon: '⚪' },
+    { label: t('dashboard.statError'), value: stats.value.devices_error ?? 0, color: 'text-red-600', icon: '🔴' },
+    { label: t('dashboard.statActivePlaylists'), value: stats.value.playlists_active ?? 0, color: 'text-indigo-600', icon: '🎞️' },
+    { label: t('dashboard.statActiveTickers'), value: stats.value.tickers_active ?? 0, color: 'text-amber-600', icon: '📝' },
+    { label: t('dashboard.statMedia'), value: stats.value.media_total ?? 0, color: 'text-slate-800', icon: '🖼️' },
 ]);
 
 const levelBadge = {
@@ -33,11 +35,11 @@ const levelBadge = {
     error: 'red',
 };
 
-const levelLabel = {
-    info: 'Инфо',
-    warning: 'Предупреждение',
-    error: 'Ошибка',
-};
+const levelLabel = computed(() => ({
+    info: t('dashboard.levelInfo'),
+    warning: t('dashboard.levelWarning'),
+    error: t('dashboard.levelError'),
+}));
 
 function formatDate(value) {
     if (!value) return '—';
@@ -54,7 +56,7 @@ async function load() {
         recentLogs.value = payload.recent_logs ?? [];
         emergencyActive.value = !!payload.emergency_active;
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить данные панели.');
+        toast.error(e?.response?.data?.message || t('dashboard.loadDataError'));
     } finally {
         loading.value = false;
     }
@@ -65,9 +67,9 @@ async function resyncScreens() {
     resyncing.value = true;
     try {
         await api.post('/resync');
-        toast.success('Команда синхронизации отправлена на все экраны');
+        toast.success(t('dashboard.resyncSuccess'));
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось отправить команду синхронизации.');
+        toast.error(e?.response?.data?.message || t('dashboard.resyncError'));
     } finally {
         resyncing.value = false;
     }
@@ -78,9 +80,9 @@ onMounted(load);
 
 <template>
     <div>
-        <PageHeader title="Панель управления" subtitle="Обзор системы цифровых вывесок">
+        <PageHeader :title="$t('dashboard.title')" :subtitle="$t('dashboard.subtitle')">
             <template #actions>
-                <Btn variant="secondary" :loading="loading" @click="load">🔄 Обновить</Btn>
+                <Btn variant="secondary" :loading="loading" @click="load">🔄 {{ $t('dashboard.refresh') }}</Btn>
             </template>
         </PageHeader>
 
@@ -90,15 +92,15 @@ onMounted(load);
         >
             <span class="text-xl">⚠</span>
             <div>
-                <p class="font-semibold">Активен экстренный режим</p>
-                <p class="text-sm text-red-100">На экранах сейчас отображается экстренное сообщение.</p>
+                <p class="font-semibold">{{ $t('dashboard.emergencyActiveTitle') }}</p>
+                <p class="text-sm text-red-100">{{ $t('dashboard.emergencyActiveText') }}</p>
             </div>
             <RouterLink to="/emergency" class="ml-auto">
-                <Btn variant="secondary">Управление</Btn>
+                <Btn variant="secondary">{{ $t('dashboard.manage') }}</Btn>
             </RouterLink>
         </div>
 
-        <Spinner v-if="loading" label="Загрузка…" />
+        <Spinner v-if="loading" :label="$t('common.loading')" />
 
         <template v-else>
             <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4 mb-6">
@@ -113,22 +115,22 @@ onMounted(load);
 
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2">
-                    <Card title="Последние события">
+                    <Card :title="$t('dashboard.recentEvents')">
                         <EmptyState
                             v-if="recentLogs.length === 0"
                             icon="📭"
-                            title="Пока нет событий"
-                            hint="Здесь появятся последние события устройств."
+                            :title="$t('dashboard.noEventsTitle')"
+                            :hint="$t('dashboard.noEventsHint')"
                         />
                         <div v-else class="overflow-x-auto">
                             <table class="w-full text-sm">
                                 <thead>
                                     <tr class="text-left text-slate-500 border-b border-slate-100">
-                                        <th class="py-2.5 px-3 font-medium">Время</th>
-                                        <th class="py-2.5 px-3 font-medium">Устройство</th>
-                                        <th class="py-2.5 px-3 font-medium">Уровень</th>
-                                        <th class="py-2.5 px-3 font-medium">Событие</th>
-                                        <th class="py-2.5 px-3 font-medium">Сообщение</th>
+                                        <th class="py-2.5 px-3 font-medium">{{ $t('dashboard.colTime') }}</th>
+                                        <th class="py-2.5 px-3 font-medium">{{ $t('dashboard.colDevice') }}</th>
+                                        <th class="py-2.5 px-3 font-medium">{{ $t('dashboard.colLevel') }}</th>
+                                        <th class="py-2.5 px-3 font-medium">{{ $t('dashboard.colEvent') }}</th>
+                                        <th class="py-2.5 px-3 font-medium">{{ $t('dashboard.colMessage') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -141,7 +143,7 @@ onMounted(load);
                                         <td class="py-2.5 px-3 text-slate-700">{{ log.device?.name ?? log.device_name ?? log.device_id ?? '—' }}</td>
                                         <td class="py-2.5 px-3">
                                             <Badge :color="levelBadge[log.level] || 'slate'">
-                                                {{ levelLabel[log.level] ?? log.level ?? 'Инфо' }}
+                                                {{ levelLabel[log.level] ?? log.level ?? $t('dashboard.levelInfo') }}
                                             </Badge>
                                         </td>
                                         <td class="py-2.5 px-3 text-slate-700">{{ log.event ?? '—' }}</td>
@@ -154,22 +156,22 @@ onMounted(load);
                 </div>
 
                 <div>
-                    <Card title="Быстрые действия">
+                    <Card :title="$t('dashboard.quickActions')">
                         <div class="flex flex-col gap-2">
                             <Btn variant="secondary" class="w-full" :loading="resyncing" @click="resyncScreens">
-                                🔁 Синхронизировать экраны
+                                🔁 {{ $t('dashboard.syncScreens') }}
                             </Btn>
                             <RouterLink to="/media">
-                                <Btn variant="secondary" class="w-full">🖼️ Медиа</Btn>
+                                <Btn variant="secondary" class="w-full">🖼️ {{ $t('nav.media') }}</Btn>
                             </RouterLink>
                             <RouterLink to="/playlists">
-                                <Btn variant="secondary" class="w-full">🎞️ Плейлисты</Btn>
+                                <Btn variant="secondary" class="w-full">🎞️ {{ $t('nav.playlists') }}</Btn>
                             </RouterLink>
                             <RouterLink to="/emergency">
-                                <Btn variant="danger" class="w-full">⚠ Экстренное сообщение</Btn>
+                                <Btn variant="danger" class="w-full">⚠ {{ $t('dashboard.emergencyMessage') }}</Btn>
                             </RouterLink>
                             <RouterLink to="/player">
-                                <Btn variant="primary" class="w-full">▶ Плеер</Btn>
+                                <Btn variant="primary" class="w-full">▶ {{ $t('dashboard.player') }}</Btn>
                             </RouterLink>
                         </div>
                     </Card>

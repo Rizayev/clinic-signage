@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import api from '@/services/api';
 import { useToast } from '@/composables/useToast';
 import { useConfirm } from '@/composables/useConfirm';
@@ -18,6 +19,7 @@ import SelectInput from '@/components/ui/SelectInput.vue';
 
 const toast = useToast();
 const { confirm } = useConfirm();
+const { t } = useI18n();
 
 const route = useRoute();
 const playlistId = route.params.id;
@@ -26,22 +28,22 @@ const playlist = ref(null);
 const items = ref([]);
 const loading = ref(true);
 
-const TRANSITIONS = [
-    { value: 'none', label: 'Без эффекта' },
-    { value: 'fade', label: 'Затухание' },
-    { value: 'slide_left', label: 'Сдвиг влево' },
-    { value: 'slide_right', label: 'Сдвиг вправо' },
-    { value: 'zoom', label: 'Масштаб' },
-    { value: 'crossfade', label: 'Перекрёстное затухание' },
-];
+const TRANSITIONS = computed(() => [
+    { value: 'none', label: t('playlistEditor.transitionNone') },
+    { value: 'fade', label: t('playlistEditor.transitionFade') },
+    { value: 'slide_left', label: t('playlistEditor.transitionSlideLeft') },
+    { value: 'slide_right', label: t('playlistEditor.transitionSlideRight') },
+    { value: 'zoom', label: t('playlistEditor.transitionZoom') },
+    { value: 'crossfade', label: t('playlistEditor.transitionCrossfade') },
+]);
 
-const MEDIA_TYPE_LABELS = {
-    video: 'Видео',
-    image: 'Изображение',
-    audio: 'Аудио',
+const MEDIA_TYPE_LABELS = computed(() => ({
+    video: t('playlistEditor.mediaTypeVideo'),
+    image: t('playlistEditor.mediaTypeImage'),
+    audio: t('playlistEditor.mediaTypeAudio'),
     html: 'HTML',
-    text: 'Текст',
-};
+    text: t('playlistEditor.mediaTypeText'),
+}));
 
 const MEDIA_TYPE_COLORS = {
     video: 'indigo',
@@ -52,11 +54,11 @@ const MEDIA_TYPE_COLORS = {
 };
 
 function transitionLabel(value) {
-    return TRANSITIONS.find((t) => t.value === value)?.label ?? (value || 'Без эффекта');
+    return TRANSITIONS.value.find((tr) => tr.value === value)?.label ?? (value || t('playlistEditor.transitionNone'));
 }
 
 function mediaTypeLabel(type) {
-    return MEDIA_TYPE_LABELS[type] ?? type ?? '—';
+    return MEDIA_TYPE_LABELS.value[type] ?? type ?? '—';
 }
 
 function mediaTypeColor(type) {
@@ -65,7 +67,7 @@ function mediaTypeColor(type) {
 
 function formatDuration(item) {
     const seconds = item.duration_seconds ?? item.media?.duration ?? null;
-    return seconds == null ? '—' : `${seconds} сек`;
+    return seconds == null ? '—' : t('playlistEditor.secondsShort', { count: seconds });
 }
 
 async function load() {
@@ -76,7 +78,7 @@ async function load() {
         playlist.value = payload;
         items.value = (payload.items ?? []).slice();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить плейлист.');
+        toast.error(e?.response?.data?.message || t('playlistEditor.loadPlaylistError'));
     } finally {
         loading.value = false;
     }
@@ -88,9 +90,9 @@ async function persistOrder() {
         await api.post(`/playlists/${playlistId}/reorder`, {
             order: items.value.map((i) => i.id),
         });
-        toast.success('Порядок сохранён.');
+        toast.success(t('playlistEditor.orderSaved'));
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить порядок.');
+        toast.error(e?.response?.data?.message || t('playlistEditor.orderSaveError'));
         await load();
     }
 }
@@ -113,18 +115,18 @@ function moveDown(index) {
 
 /* ---------- Remove item ---------- */
 async function removeItem(item) {
-    const title = item.media?.title ?? 'элемент';
+    const title = item.media?.title ?? t('playlistEditor.itemFallback');
     if (!(await confirm({
-        title: 'Удалить элемент?',
-        message: `Удалить «${title}» из плейлиста?`,
-        confirmText: 'Удалить',
+        title: t('playlistEditor.removeItemTitle'),
+        message: t('playlistEditor.removeItemMessage', { title }),
+        confirmText: t('common.delete'),
     }))) return;
     try {
         await api.delete(`/playlists/${playlistId}/items/${item.id}`);
         await load();
-        toast.success('Элемент удалён.');
+        toast.success(t('playlistEditor.itemRemoved'));
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить элемент.');
+        toast.error(e?.response?.data?.message || t('playlistEditor.itemRemoveError'));
     }
 }
 
@@ -155,10 +157,10 @@ async function saveEdit() {
         });
         showEdit.value = false;
         await load();
-        toast.success('Изменения сохранены.');
+        toast.success(t('playlistEditor.changesSaved'));
     } catch (e) {
-        editError.value = e?.response?.data?.message || 'Не удалось сохранить изменения.';
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить изменения.');
+        editError.value = e?.response?.data?.message || t('playlistEditor.changesSaveError');
+        toast.error(e?.response?.data?.message || t('playlistEditor.changesSaveError'));
     } finally {
         editSaving.value = false;
     }
@@ -188,7 +190,9 @@ function fmtDuration(sec) {
     if (!sec && sec !== 0) return '—';
     const m = Math.floor(sec / 60);
     const s = Math.round(sec % 60);
-    return m ? `${m} мин ${s} сек` : `${s} сек`;
+    return m
+        ? t('playlistEditor.durationMinSec', { min: m, sec: s })
+        : t('playlistEditor.secondsShort', { count: s });
 }
 
 // When picking a video, default its slot duration to the video's full length
@@ -213,7 +217,7 @@ async function loadMedia() {
         mediaList.value = data.data ?? data;
     } catch (e) {
         mediaList.value = [];
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить медиа.');
+        toast.error(e?.response?.data?.message || t('playlistEditor.loadMediaError'));
     } finally {
         mediaLoading.value = false;
     }
@@ -228,7 +232,7 @@ function openAdd() {
 
 async function addMedia() {
     if (!addForm.value.media_id) {
-        addError.value = 'Выберите медиа.';
+        addError.value = t('playlistEditor.selectMediaError');
         return;
     }
     addSaving.value = true;
@@ -241,10 +245,10 @@ async function addMedia() {
         });
         showAdd.value = false;
         await load();
-        toast.success('Медиа добавлено.');
+        toast.success(t('playlistEditor.mediaAdded'));
     } catch (e) {
-        addError.value = e?.response?.data?.message || 'Не удалось добавить медиа.';
-        toast.error(e?.response?.data?.message || 'Не удалось добавить медиа.');
+        addError.value = e?.response?.data?.message || t('playlistEditor.mediaAddError');
+        toast.error(e?.response?.data?.message || t('playlistEditor.mediaAddError'));
     } finally {
         addSaving.value = false;
     }
@@ -257,12 +261,12 @@ const assignForm = ref({ target_type: 'all', target_id: '', priority: 0 });
 const targetOptions = ref([]);
 const targetsLoading = ref(false);
 
-const TARGET_TYPE_OPTIONS = [
-    { value: 'device', label: 'Устройство' },
-    { value: 'zone', label: 'Зона' },
-    { value: 'branch', label: 'Филиал' },
-    { value: 'all', label: 'Все экраны' },
-];
+const TARGET_TYPE_OPTIONS = computed(() => [
+    { value: 'device', label: t('playlistEditor.targetDevice') },
+    { value: 'zone', label: t('playlistEditor.targetZone') },
+    { value: 'branch', label: t('playlistEditor.targetBranch') },
+    { value: 'all', label: t('playlistEditor.targetAllScreens') },
+]);
 
 const needsTarget = computed(() => assignForm.value.target_type !== 'all');
 
@@ -283,7 +287,7 @@ async function loadTargets() {
         targetOptions.value = data.data ?? data;
     } catch (e) {
         targetOptions.value = [];
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить цели назначения.');
+        toast.error(e?.response?.data?.message || t('playlistEditor.loadTargetsError'));
     } finally {
         targetsLoading.value = false;
     }
@@ -291,7 +295,7 @@ async function loadTargets() {
 
 async function assign() {
     if (needsTarget.value && !assignForm.value.target_id) {
-        assignError.value = 'Выберите цель назначения.';
+        assignError.value = t('playlistEditor.selectTargetError');
         return;
     }
     assignSaving.value = true;
@@ -302,10 +306,10 @@ async function assign() {
             target_id: needsTarget.value ? assignForm.value.target_id : null,
             priority: Number(assignForm.value.priority) || 0,
         });
-        toast.success('Плейлист назначен.');
+        toast.success(t('playlistEditor.playlistAssigned'));
     } catch (e) {
-        assignError.value = e?.response?.data?.message || 'Не удалось назначить плейлист.';
-        toast.error(e?.response?.data?.message || 'Не удалось назначить плейлист.');
+        assignError.value = e?.response?.data?.message || t('playlistEditor.playlistAssignError');
+        toast.error(e?.response?.data?.message || t('playlistEditor.playlistAssignError'));
     } finally {
         assignSaving.value = false;
     }
@@ -317,37 +321,37 @@ onMounted(load);
 <template>
     <div>
         <PageHeader
-            :title="playlist?.name ?? 'Плейлист'"
-            :subtitle="playlist?.description ?? 'Редактор плейлиста'"
+            :title="playlist?.name ?? $t('playlistEditor.playlistFallback')"
+            :subtitle="playlist?.description ?? $t('playlistEditor.subtitle')"
         >
             <template #actions>
                 <RouterLink to="/playlists">
-                    <Btn variant="secondary">Назад</Btn>
+                    <Btn variant="secondary">{{ $t('common.back') }}</Btn>
                 </RouterLink>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('playlistEditor.refresh') }}</Btn>
             </template>
         </PageHeader>
 
         <Card v-if="loading">
-            <Spinner label="Загрузка…" />
+            <Spinner :label="$t('common.loading')" />
         </Card>
 
         <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Left: items list -->
             <div class="lg:col-span-2">
-                <Card title="Элементы плейлиста">
+                <Card :title="$t('playlistEditor.itemsTitle')">
                     <template #actions>
-                        <Btn variant="primary" @click="openAdd">+ Добавить медиа</Btn>
+                        <Btn variant="primary" @click="openAdd">{{ $t('playlistEditor.addMediaBtn') }}</Btn>
                     </template>
 
                     <EmptyState
                         v-if="items.length === 0"
                         icon="🎬"
-                        title="Пока нет элементов"
-                        hint="Добавьте медиафайлы, чтобы они отображались на экранах."
+                        :title="$t('playlistEditor.emptyTitle')"
+                        :hint="$t('playlistEditor.emptyHint')"
                     >
                         <template #action>
-                            <Btn variant="primary" @click="openAdd">+ Добавить медиа</Btn>
+                            <Btn variant="primary" @click="openAdd">{{ $t('playlistEditor.addMediaBtn') }}</Btn>
                         </template>
                     </EmptyState>
 
@@ -361,9 +365,9 @@ onMounted(load);
                             <div class="flex-1 min-w-0">
                                 <p
                                     class="font-medium text-slate-800 truncate max-w-[28rem]"
-                                    :title="item.media?.title ?? 'Без названия'"
+                                    :title="item.media?.title ?? $t('playlistEditor.untitled')"
                                 >
-                                    {{ item.media?.title ?? 'Без названия' }}
+                                    {{ item.media?.title ?? $t('playlistEditor.untitled') }}
                                 </p>
                                 <p class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                                     <Badge :color="mediaTypeColor(item.media?.type)">
@@ -386,7 +390,7 @@ onMounted(load);
                                     :disabled="index === items.length - 1"
                                     @click="moveDown(index)"
                                 >↓</Btn>
-                                <Btn variant="secondary" size="sm" @click="openEdit(item)">Изменить</Btn>
+                                <Btn variant="secondary" size="sm" @click="openEdit(item)">{{ $t('common.edit') }}</Btn>
                                 <Btn variant="danger" size="sm" @click="removeItem(item)">🗑</Btn>
                             </div>
                         </li>
@@ -396,24 +400,24 @@ onMounted(load);
 
             <!-- Right: info + assign -->
             <div class="space-y-6">
-                <Card title="Сведения">
+                <Card :title="$t('playlistEditor.detailsTitle')">
                     <dl class="text-sm space-y-2">
                         <div class="flex justify-between items-center">
-                            <dt class="text-slate-500">Статус</dt>
+                            <dt class="text-slate-500">{{ $t('common.status') }}</dt>
                             <dd><StatusDot :status="playlist?.status" /></dd>
                         </div>
                         <div class="flex justify-between items-center">
-                            <dt class="text-slate-500">Версия</dt>
+                            <dt class="text-slate-500">{{ $t('playlistEditor.version') }}</dt>
                             <dd class="text-slate-700">v{{ playlist?.version ?? 1 }}</dd>
                         </div>
                         <div class="flex justify-between items-center">
-                            <dt class="text-slate-500">Элементов</dt>
+                            <dt class="text-slate-500">{{ $t('playlistEditor.itemsCount') }}</dt>
                             <dd class="text-slate-700">{{ items.length }}</dd>
                         </div>
                     </dl>
                 </Card>
 
-                <Card title="Назначить">
+                <Card :title="$t('playlistEditor.assignTitle')">
                     <div
                         v-if="assignError"
                         class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2"
@@ -421,22 +425,22 @@ onMounted(load);
                         {{ assignError }}
                     </div>
                     <div class="space-y-4">
-                        <FormField label="Тип цели">
+                        <FormField :label="$t('playlistEditor.targetType')">
                             <SelectInput
                                 v-model="assignForm.target_type"
                                 :options="TARGET_TYPE_OPTIONS"
                                 @update:modelValue="loadTargets"
                             />
                         </FormField>
-                        <FormField v-if="needsTarget" label="Цель">
+                        <FormField v-if="needsTarget" :label="$t('playlistEditor.target')">
                             <SelectInput
                                 v-model="assignForm.target_id"
                                 :options="targetSelectOptions"
                                 :disabled="targetsLoading"
-                                :placeholder="targetsLoading ? 'Загрузка…' : 'Выберите…'"
+                                :placeholder="targetsLoading ? $t('common.loading') : $t('common.select')"
                             />
                         </FormField>
-                        <FormField label="Приоритет" hint="Чем выше число, тем выше приоритет.">
+                        <FormField :label="$t('playlistEditor.priority')" :hint="$t('playlistEditor.priorityHint')">
                             <TextInput v-model.number="assignForm.priority" type="number" />
                         </FormField>
                         <Btn
@@ -445,7 +449,7 @@ onMounted(load);
                             :loading="assignSaving"
                             @click="assign"
                         >
-                            Назначить
+                            {{ $t('playlistEditor.assignBtn') }}
                         </Btn>
                     </div>
                 </Card>
@@ -453,27 +457,27 @@ onMounted(load);
         </div>
 
         <!-- Add media modal -->
-        <Modal v-model="showAdd" title="Добавить медиа">
+        <Modal v-model="showAdd" :title="$t('playlistEditor.addMediaTitle')">
             <div
                 v-if="addError"
                 class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2"
             >
                 {{ addError }}
             </div>
-            <Spinner v-if="mediaLoading" label="Загрузка медиа…" />
+            <Spinner v-if="mediaLoading" :label="$t('playlistEditor.loadingMedia')" />
             <form v-else class="space-y-4" @submit.prevent="addMedia">
-                <FormField label="Медиа" required>
+                <FormField :label="$t('playlistEditor.mediaLabel')" required>
                     <SelectInput
                         v-model="addForm.media_id"
                         :options="mediaOptions"
-                        placeholder="Выберите медиа…"
+                        :placeholder="$t('playlistEditor.selectMediaPlaceholder')"
                     />
                 </FormField>
                 <FormField
-                    label="Длительность (сек)"
+                    :label="$t('playlistEditor.durationLabel')"
                     :hint="addIsVideo
-                        ? `Видео целиком — ${fmtDuration(selectedAddMedia?.duration)}. Уменьшите, чтобы показывать только начало.`
-                        : 'Сколько секунд показывать изображение'"
+                        ? $t('playlistEditor.videoFullHint', { dur: fmtDuration(selectedAddMedia?.duration) })
+                        : $t('playlistEditor.imageDurationHint')"
                 >
                     <div class="flex items-center gap-2">
                         <TextInput v-model="addForm.duration_seconds" type="number" />
@@ -482,21 +486,21 @@ onMounted(load);
                             size="sm"
                             variant="ghost"
                             @click="addForm.duration_seconds = selectedAddMedia.duration"
-                        >Вся длина</Btn>
+                        >{{ $t('playlistEditor.fullLength') }}</Btn>
                     </div>
                 </FormField>
-                <FormField label="Переход">
+                <FormField :label="$t('playlistEditor.transitionLabel')">
                     <SelectInput v-model="addForm.transition_effect" :options="TRANSITIONS" />
                 </FormField>
             </form>
             <template #footer>
-                <Btn variant="secondary" @click="showAdd = false">Отмена</Btn>
-                <Btn variant="primary" :loading="addSaving" @click="addMedia">Добавить</Btn>
+                <Btn variant="secondary" @click="showAdd = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="addSaving" @click="addMedia">{{ $t('common.add') }}</Btn>
             </template>
         </Modal>
 
         <!-- Edit item modal -->
-        <Modal v-model="showEdit" title="Изменить элемент">
+        <Modal v-model="showEdit" :title="$t('playlistEditor.editItemTitle')">
             <div
                 v-if="editError"
                 class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2"
@@ -504,23 +508,23 @@ onMounted(load);
                 {{ editError }}
             </div>
             <p v-if="editItem" class="text-sm text-slate-600 mb-4">
-                {{ editItem.media?.title ?? 'Элемент' }}
+                {{ editItem.media?.title ?? $t('playlistEditor.itemFallbackCap') }}
             </p>
             <form class="space-y-4" @submit.prevent="saveEdit">
-                <FormField label="Длительность (сек)">
+                <FormField :label="$t('playlistEditor.durationLabel')">
                     <TextInput
                         v-model="editForm.duration_seconds"
                         type="number"
-                        placeholder="По умолчанию"
+                        :placeholder="$t('playlistEditor.durationDefaultPlaceholder')"
                     />
                 </FormField>
-                <FormField label="Переход">
+                <FormField :label="$t('playlistEditor.transitionLabel')">
                     <SelectInput v-model="editForm.transition_effect" :options="TRANSITIONS" />
                 </FormField>
             </form>
             <template #footer>
-                <Btn variant="secondary" @click="showEdit = false">Отмена</Btn>
-                <Btn variant="primary" :loading="editSaving" @click="saveEdit">Сохранить</Btn>
+                <Btn variant="secondary" @click="showEdit = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="editSaving" @click="saveEdit">{{ $t('common.save') }}</Btn>
             </template>
         </Modal>
     </div>

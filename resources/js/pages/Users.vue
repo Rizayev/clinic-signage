@@ -15,7 +15,9 @@ import FormField from '@/components/ui/FormField.vue';
 import TextInput from '@/components/ui/TextInput.vue';
 import SelectInput from '@/components/ui/SelectInput.vue';
 import Toggle from '@/components/ui/Toggle.vue';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 const toast = useToast();
 const { confirm } = useConfirm();
 
@@ -28,12 +30,12 @@ const saving = ref(false);
 const editingId = ref(null);
 const errors = reactive({});
 
-const roles = [
-    { value: 'super_admin', label: 'Супер-администратор' },
-    { value: 'branch_admin', label: 'Администратор филиала' },
-    { value: 'content_manager', label: 'Контент-менеджер' },
-    { value: 'viewer', label: 'Наблюдатель' },
-];
+const roles = computed(() => [
+    { value: 'super_admin', label: t('roles.super_admin') },
+    { value: 'branch_admin', label: t('roles.branch_admin') },
+    { value: 'content_manager', label: t('roles.content_manager') },
+    { value: 'viewer', label: t('roles.viewer') },
+]);
 
 const roleColors = {
     super_admin: 'violet',
@@ -43,7 +45,7 @@ const roleColors = {
 };
 
 const branchOptions = computed(() => [
-    { value: '', label: '— Без филиала —' },
+    { value: '', label: t('users.noBranchOption') },
     ...branches.value.map((b) => ({ value: b.id, label: b.name })),
 ]);
 
@@ -61,7 +63,7 @@ function emptyForm() {
 const form = reactive(emptyForm());
 
 function roleLabel(role) {
-    return roles.find((r) => r.value === role)?.label ?? role ?? '—';
+    return roles.value.find((r) => r.value === role)?.label ?? role ?? '—';
 }
 
 function roleColor(role) {
@@ -97,7 +99,7 @@ async function load() {
         branches.value = branchesRes.data.data ?? [];
     } catch (e) {
         users.value = [];
-        toast.error(e?.response?.data?.message || 'Не удалось загрузить пользователей.');
+        toast.error(e?.response?.data?.message || t('users.loadFailed'));
     } finally {
         loading.value = false;
     }
@@ -144,11 +146,11 @@ async function save() {
             await api.post('/users', payload);
         }
         showModal.value = false;
-        toast.success(editingId.value ? 'Пользователь обновлён' : 'Пользователь создан');
+        toast.success(editingId.value ? t('users.updated') : t('users.created'));
         await load();
     } catch (e) {
         applyValidationErrors(e);
-        toast.error(e?.response?.data?.message || 'Не удалось сохранить пользователя.');
+        toast.error(e?.response?.data?.message || t('users.saveFailed'));
     } finally {
         saving.value = false;
     }
@@ -157,18 +159,18 @@ async function save() {
 async function remove(user) {
     if (
         !(await confirm({
-            title: 'Удалить пользователя?',
-            message: `Удалить пользователя «${user.name}»?`,
-            confirmText: 'Удалить',
+            title: t('users.deleteTitle'),
+            message: t('users.deleteMessage', { name: user.name }),
+            confirmText: t('common.delete'),
         }))
     )
         return;
     try {
         await api.delete(`/users/${user.id}`);
-        toast.success('Пользователь удалён');
+        toast.success(t('users.deleted'));
         await load();
     } catch (e) {
-        toast.error(e?.response?.data?.message || 'Не удалось удалить пользователя.');
+        toast.error(e?.response?.data?.message || t('users.deleteFailed'));
     }
 }
 
@@ -177,24 +179,24 @@ onMounted(load);
 
 <template>
     <div>
-        <PageHeader title="Пользователи" subtitle="Учётные записи панели управления">
+        <PageHeader :title="$t('users.title')" :subtitle="$t('users.subtitle')">
             <template #actions>
-                <Btn variant="secondary" @click="load">Обновить</Btn>
-                <Btn variant="primary" @click="openCreate">+ Добавить пользователя</Btn>
+                <Btn variant="secondary" @click="load">{{ $t('users.refresh') }}</Btn>
+                <Btn variant="primary" @click="openCreate">+ {{ $t('users.addUser') }}</Btn>
             </template>
         </PageHeader>
 
         <Card>
-            <Spinner v-if="loading" label="Загрузка…" />
+            <Spinner v-if="loading" :label="$t('common.loading')" />
 
             <EmptyState
                 v-else-if="!users.length"
                 icon="👤"
-                title="Пока нет пользователей"
-                hint="Добавьте первую учётную запись для доступа к панели управления."
+                :title="$t('users.emptyTitle')"
+                :hint="$t('users.emptyHint')"
             >
                 <template #action>
-                    <Btn @click="openCreate">+ Добавить пользователя</Btn>
+                    <Btn @click="openCreate">+ {{ $t('users.addUser') }}</Btn>
                 </template>
             </EmptyState>
 
@@ -202,12 +204,12 @@ onMounted(load);
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="text-left text-slate-500 border-b border-slate-100">
-                            <th class="py-2.5 px-3 font-medium">Имя</th>
-                            <th class="py-2.5 px-3 font-medium">Email</th>
-                            <th class="py-2.5 px-3 font-medium">Роль</th>
-                            <th class="py-2.5 px-3 font-medium">Филиал</th>
-                            <th class="py-2.5 px-3 font-medium">Статус</th>
-                            <th class="py-2.5 px-3 font-medium text-right">Действия</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('users.name') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('users.email') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('users.role') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('users.branch') }}</th>
+                            <th class="py-2.5 px-3 font-medium">{{ $t('common.status') }}</th>
+                            <th class="py-2.5 px-3 font-medium text-right">{{ $t('common.actions') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -226,8 +228,8 @@ onMounted(load);
                                 <StatusDot :status="user.is_active ? 'active' : 'inactive'" />
                             </td>
                             <td class="py-2.5 px-3 text-right whitespace-nowrap">
-                                <Btn size="sm" variant="ghost" @click="openEdit(user)">Изменить</Btn>
-                                <Btn size="sm" variant="danger" @click="remove(user)">🗑 Удалить</Btn>
+                                <Btn size="sm" variant="ghost" @click="openEdit(user)">{{ $t('common.edit') }}</Btn>
+                                <Btn size="sm" variant="danger" @click="remove(user)">🗑 {{ $t('common.delete') }}</Btn>
                             </td>
                         </tr>
                     </tbody>
@@ -237,44 +239,44 @@ onMounted(load);
 
         <Modal
             v-model="showModal"
-            :title="editingId ? 'Редактировать пользователя' : 'Новый пользователь'"
+            :title="editingId ? $t('users.editTitle') : $t('users.newTitle')"
         >
             <form class="space-y-4" @submit.prevent="save">
-                <FormField label="Имя" required :error="errors.name">
-                    <TextInput v-model="form.name" placeholder="Иван Иванов" />
+                <FormField :label="$t('users.name')" required :error="errors.name">
+                    <TextInput v-model="form.name" :placeholder="$t('users.namePlaceholder')" />
                 </FormField>
 
-                <FormField label="Email" required :error="errors.email">
+                <FormField :label="$t('users.email')" required :error="errors.email">
                     <TextInput v-model="form.email" type="email" placeholder="user@example.com" />
                 </FormField>
 
                 <FormField
-                    label="Пароль"
+                    :label="$t('users.password')"
                     :required="!editingId"
                     :error="errors.password"
-                    :hint="editingId ? 'оставьте пустым чтобы не менять' : ''"
+                    :hint="editingId ? $t('users.passwordHint') : ''"
                 >
                     <TextInput v-model="form.password" type="password" placeholder="••••••••" />
                 </FormField>
 
                 <div class="grid grid-cols-2 gap-4">
-                    <FormField label="Роль" required :error="errors.role">
+                    <FormField :label="$t('users.role')" required :error="errors.role">
                         <SelectInput v-model="form.role" :options="roles" />
                     </FormField>
 
-                    <FormField label="Филиал" :error="errors.branch_id">
+                    <FormField :label="$t('users.branch')" :error="errors.branch_id">
                         <SelectInput v-model="form.branch_id" :options="branchOptions" />
                     </FormField>
                 </div>
 
-                <FormField label="Активен">
+                <FormField :label="$t('common.active')">
                     <Toggle v-model="form.is_active" />
                 </FormField>
             </form>
 
             <template #footer>
-                <Btn variant="secondary" @click="showModal = false">Отмена</Btn>
-                <Btn variant="primary" :loading="saving" @click="save">Сохранить</Btn>
+                <Btn variant="secondary" @click="showModal = false">{{ $t('common.cancel') }}</Btn>
+                <Btn variant="primary" :loading="saving" @click="save">{{ $t('common.save') }}</Btn>
             </template>
         </Modal>
     </div>
